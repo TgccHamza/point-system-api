@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"point-system-api/internal/handlers"
 
 	"fmt"
 	"log"
@@ -15,9 +16,10 @@ import (
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
+	r.POST("/migrate", handlers.HandleMigrate)
 	r.GET("/", s.HelloWorldHandler)
 
-	r.GET("/health", s.healthHandler)
+	r.GET("/health", handlers.HealthHandler(s.db))
 
 	r.GET("/websocket", s.websocketHandler)
 
