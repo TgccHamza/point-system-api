@@ -15,6 +15,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Health check endpoint
 	r.GET("/health", handlers.HealthHandler(s.db))
 
+	// Employee Workday routes
+	workdayHandler := handlers.NewEmployeeWorkdayHandler(s.employeeWorkdayService)
+	r.POST("/employee-workdays", workdayHandler.CreateEmployeeWorkday)
+	r.GET("/employee-workdays/:id", workdayHandler.GetEmployeeWorkdayByID)
+	r.GET("/employees/:employee_id/workdays", workdayHandler.GetEmployeeWorkdaysByEmployeeID)
+	r.PUT("/employee-workdays/:id", workdayHandler.UpdateEmployeeWorkday)
+	r.DELETE("/employee-workdays/:id", workdayHandler.DeleteEmployeeWorkday)
+
 	// User routes
 	userHandler := handlers.NewUserHandler(s.userService)
 	r.POST("/users", userHandler.CreateUser)

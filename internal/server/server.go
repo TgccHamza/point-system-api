@@ -16,12 +16,13 @@ import (
 
 // Server represents the HTTP server and its dependencies.
 type Server struct {
-	httpServer      *http.Server
-	port            int
-	db              database.Service
-	userService     services.UserService
-	companyService  services.CompanyService
-	employeeService services.EmployeeService
+	httpServer             *http.Server
+	port                   int
+	db                     database.Service
+	userService            services.UserService
+	companyService         services.CompanyService
+	employeeService        services.EmployeeService
+	employeeWorkdayService services.EmployeeWorkdayService
 }
 
 // NewServer creates a new instance of the Server.
@@ -36,11 +37,13 @@ func NewServer() *Server {
 	userRepo := repositories.NewUserRepository(db.GetDB())
 	companyRepo := repositories.NewCompanyRepository(db.GetDB())
 	employeeRepo := repositories.NewEmployeeRepository(db.GetDB())
+	workdayRepo := repositories.NewEmployeeWorkdayRepository(db.GetDB()) // Add this
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
 	companyService := services.NewCompanyService(companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo)
+	employeeWorkdayService := services.NewEmployeeWorkdayService(workdayRepo) // Add this
 
 	// Create the HTTP server
 	httpServer := &http.Server{
@@ -52,12 +55,13 @@ func NewServer() *Server {
 	}
 
 	return &Server{
-		httpServer:      httpServer,
-		port:            port,
-		db:              db,
-		userService:     userService,
-		companyService:  companyService,
-		employeeService: employeeService,
+		httpServer:             httpServer,
+		port:                   port,
+		db:                     db,
+		userService:            userService,
+		companyService:         companyService,
+		employeeService:        employeeService,
+		employeeWorkdayService: employeeWorkdayService,
 	}
 }
 
