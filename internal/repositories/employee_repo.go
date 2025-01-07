@@ -1,4 +1,4 @@
-package repository
+package repositories
 
 import (
 	"context"
@@ -10,42 +10,92 @@ import (
 	"point-system-api/internal/models"
 )
 
-func CreateEmployee(ctx context.Context, db *gorm.DB, employee *models.Employee) error {
-	if err := db.WithContext(ctx).Create(employee).Error; err != nil {
+// EmployeeRepository defines the interface for employee-related database operations.
+type EmployeeRepository interface {
+	CreateEmployee(ctx context.Context, employee *models.Employee) error
+	GetEmployeeByID(ctx context.Context, id uint) (*models.Employee, error)
+	GetEmployeesByCompanyID(ctx context.Context, companyID uint) ([]*models.Employee, error)
+	UpdateEmployee(ctx context.Context, employee *models.Employee) error
+	DeleteEmployee(ctx context.Context, id uint) error
+}
+
+// employeeRepository implements the EmployeeRepository interface.
+type employeeRepository struct {
+	db *gorm.DB
+}
+
+// NewEmployeeRepository creates a new instance of EmployeeRepository.
+func NewEmployeeRepository(db *gorm.DB) EmployeeRepository {
+	return &employeeRepository{
+		db: db,
+	}
+}
+
+// CreateEmployee inserts a new employee into the database.
+func (r *employeeRepository) CreateEmployee(ctx context.Context, employee *models.Employee) error {
+	// Validate that the associated user and company exist
+	if employee.UserID == 0 {
+		return errors.New("user ID is required")
+	}
+	if employee.CompanyID == 0 {
+		return errors.New("company ID is required")
+	}
+
+	// Create the employee in the database
+	if err := r.db.WithContext(ctx).Create(employee).Error; err != nil {
 		return fmt.Errorf("failed to create employee: %w", err)
 	}
+
 	return nil
 }
 
-func GetEmployeeByID(ctx context.Context, db *gorm.DB, id uint) (*models.Employee, error) {
-	employee := &models.Employee{}
-	if err := db.WithContext(ctx).First(employee, id).Error; err != nil {
+// GetEmployeeByID retrieves an employee by their ID.
+func (r *employeeRepository) GetEmployeeByID(ctx context.Context, id uint) (*models.Employee, error) {
+	var employee models.Employee
+	if err := r.db.WithContext(ctx).First(&employee, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("employee not found: %w", err)
+			return nil, nil // No employee found
 		}
-		return nil, fmt.Errorf("failed to retrieve employee: %w", err)
+		return nil, fmt.Errorf("failed to retrieve employee by ID: %w", err)
 	}
-	return employee, nil
+	return &employee, nil
 }
 
-func GetEmployeesByCompanyID(ctx context.Context, db *gorm.DB, companyID uint) ([]*models.Employee, error) {
+// GetEmployeesByCompanyID retrieves all employees for a specific company.
+func (r *employeeRepository) GetEmployeesByCompanyID(ctx context.Context, companyID uint) ([]*models.Employee, error) {
 	var employees []*models.Employee
-	if err := db.WithContext(ctx).Where("company_id = ?", companyID).Find(&employees).Error; err != nil {
-		return nil, fmt.Errorf("failed to retrieve employees for company %d: %w", companyID, err)
+	if err := r.db.WithContext(ctx).Where("company_id = ?", companyID).Find(&employees).Error; err != nil {
+		return nil, fmt.Errorf("failed to retrieve employees by company ID: %w", err)
 	}
 	return employees, nil
 }
 
-func UpdateEmployee(ctx context.Context, db *gorm.DB, employee *models.Employee) error {
-	if err := db.WithContext(ctx).Save(employee).Error; err != nil {
+// UpdateEmployee updates an existing employee in the database.
+func (r *employeeRepository) UpdateEmployee(ctx context.Context, employee *models.Employee) error {
+	// Validate that the employee ID is provided
+	if employee.ID == 0 {
+		return errors.New("employee ID is required")
+	}
+
+	// Update the employee in the database
+	if err := r.db.WithContext(ctx).Save(employee).Error; err != nil {
 		return fmt.Errorf("failed to update employee: %w", err)
 	}
+
 	return nil
 }
 
-func DeleteEmployee(ctx context.Context, db *gorm.DB, id uint) error {
-	if err := db.WithContext(ctx).Delete(&models.Employee{}, id).Error; err != nil {
+// DeleteEmployee deletes an employee by their ID.
+func (r *employeeRepository) DeleteEmployee(ctx context.Context, id uint) error {
+	// Validate that the employee ID is provided
+	if id == 0 {
+		return errors.New("employee ID is required")
+	}
+
+	// Delete the employee from the database
+	if err := r.db.WithContext(ctx).Delete(&models.Employee{}, id).Error; err != nil {
 		return fmt.Errorf("failed to delete employee: %w", err)
 	}
+
 	return nil
 }

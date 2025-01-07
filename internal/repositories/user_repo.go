@@ -1,16 +1,40 @@
-package repository
+package repositories
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"point-system-api/internal/models"
 
 	"gorm.io/gorm"
 
+	"point-system-api/internal/models"
 	"point-system-api/pkg/utils"
 )
 
+// UserRepository defines the interface for user-related database operations.
+type UserRepository interface {
+	CreateUser(ctx context.Context, user models.User) (uint, error)
+	GetUserByID(ctx context.Context, id uint) (*models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	ListUsers(ctx context.Context) ([]models.User, error)
+	UpdateUser(ctx context.Context, user models.User) (bool, error)
+	DeleteUser(ctx context.Context, id uint) (bool, error)
+}
+
+// userRepository implements the UserRepository interface.
+type userRepository struct {
+	db *gorm.DB
+}
+
+// NewUserRepository creates a new instance of UserRepository.
+func NewUserRepository(db *gorm.DB) UserRepository {
+	return &userRepository{
+		db: db,
+	}
+}
+
 // CreateUser inserts a new user into the database after hashing the password.
-func CreateUser(db *gorm.DB, user models.User) (uint, error) {
+func (r *userRepository) CreateUser(ctx context.Context, user models.User) (uint, error) {
 	// Hash the user's password before saving
 	hashedPassword, err := utils.HashPassword(user.Password)
 	if err != nil {
@@ -19,7 +43,7 @@ func CreateUser(db *gorm.DB, user models.User) (uint, error) {
 	user.Password = hashedPassword
 
 	// Create the user in the database
-	if err := db.Create(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Create(&user).Error; err != nil {
 		return 0, fmt.Errorf("failed to insert user: %w", err)
 	}
 
@@ -28,10 +52,10 @@ func CreateUser(db *gorm.DB, user models.User) (uint, error) {
 }
 
 // GetUserByID retrieves a user by their ID.
-func GetUserByID(db *gorm.DB, id uint) (*models.User, error) {
+func (r *userRepository) GetUserByID(ctx context.Context, id uint) (*models.User, error) {
 	var user models.User
-	if err := db.First(&user, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	if err := r.db.WithContext(ctx).First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil // No user found
 		}
 		return nil, fmt.Errorf("failed to retrieve user by ID: %w", err)
@@ -40,10 +64,10 @@ func GetUserByID(db *gorm.DB, id uint) (*models.User, error) {
 }
 
 // GetUserByUsername retrieves a user by their username.
-func GetUserByUsername(db *gorm.DB, username string) (*models.User, error) {
+func (r *userRepository) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
-	if err := db.Where("username = ?", username).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil // No user found
 		}
 		return nil, fmt.Errorf("failed to retrieve user by username: %w", err)
@@ -52,16 +76,16 @@ func GetUserByUsername(db *gorm.DB, username string) (*models.User, error) {
 }
 
 // ListUsers retrieves all users from the database.
-func ListUsers(db *gorm.DB) ([]models.User, error) {
+func (r *userRepository) ListUsers(ctx context.Context) ([]models.User, error) {
 	var users []models.User
-	if err := db.Find(&users).Error; err != nil {
+	if err := r.db.WithContext(ctx).Find(&users).Error; err != nil {
 		return nil, fmt.Errorf("failed to retrieve users: %w", err)
 	}
 	return users, nil
 }
 
 // UpdateUser updates an existing user in the database.
-func UpdateUser(db *gorm.DB, user models.User) (bool, error) {
+func (r *userRepository) UpdateUser(ctx context.Context, user models.User) (bool, error) {
 	// Hash the user's password before updating
 	if user.Password != "" {
 		hashedPassword, err := utils.HashPassword(user.Password)
@@ -72,7 +96,7 @@ func UpdateUser(db *gorm.DB, user models.User) (bool, error) {
 	}
 
 	// Update the user in the database
-	if err := db.Save(&user).Error; err != nil {
+	if err := r.db.WithContext(ctx).Save(&user).Error; err != nil {
 		return false, fmt.Errorf("failed to update user: %w", err)
 	}
 
@@ -80,8 +104,8 @@ func UpdateUser(db *gorm.DB, user models.User) (bool, error) {
 }
 
 // DeleteUser deletes a user by their ID.
-func DeleteUser(db *gorm.DB, id uint) (bool, error) {
-	if err := db.Delete(&models.User{}, id).Error; err != nil {
+func (r *userRepository) DeleteUser(ctx context.Context, id uint) (bool, error) {
+	if err := r.db.WithContext(ctx).Delete(&models.User{}, id).Error; err != nil {
 		return false, fmt.Errorf("failed to delete user: %w", err)
 	}
 	return true, nil

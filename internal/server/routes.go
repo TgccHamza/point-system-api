@@ -2,64 +2,53 @@ package server
 
 import (
 	"net/http"
-	"point-system-api/internal/handlers"
-
-	"fmt"
-	"log"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/coder/websocket"
+	"point-system-api/internal/handlers"
 )
 
+// RegisterRoutes sets up all the routes for the application.
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
-	r.POST("/migrate", handlers.HandleMigrate)
-	r.GET("/", s.HelloWorldHandler)
-
+	// Health check endpoint
 	r.GET("/health", handlers.HealthHandler(s.db))
 
-	r.GET("/websocket", s.websocketHandler)
+	// User routes
+	userHandler := handlers.NewUserHandler(s.userService)
+	r.POST("/users", userHandler.CreateUser)
+	r.GET("/users/:id", userHandler.GetUserByID)
+	r.GET("/users/username/:username", userHandler.GetUserByUsername)
+	r.GET("/users", userHandler.ListUsers)
+	r.PUT("/users/:id", userHandler.UpdateUser)
+	r.DELETE("/users/:id", userHandler.DeleteUser)
+	r.POST("/users/authenticate", userHandler.AuthenticateUser)
 
+	// Company routes
+	companyHandler := handlers.NewCompanyHandler(s.companyService)
+	r.POST("/companies", companyHandler.CreateCompany)
+	r.GET("/companies/:id", companyHandler.GetCompanyByID)
+	r.GET("/companies", companyHandler.ListCompanies)
+	r.PUT("/companies/:id", companyHandler.UpdateCompany)
+	r.DELETE("/companies/:id", companyHandler.DeleteCompany)
+
+	// Employee routes
+	employeeHandler := handlers.NewEmployeeHandler(s.employeeService)
+	r.POST("/employees", employeeHandler.CreateEmployee)
+	r.GET("/employees/:id", employeeHandler.GetEmployeeByID)
+	r.GET("/employees/by-company/:id", employeeHandler.GetEmployeesByCompanyID)
+	r.PUT("/employees/:id", employeeHandler.UpdateEmployee)
+	r.DELETE("/employees/:id", employeeHandler.DeleteEmployee)
+
+	// Hello World endpoint
+	r.GET("/", s.HelloWorldHandler)
+
+	s.httpServer.Handler = r
 	return r
 }
 
+// HelloWorldHandler returns a simple "Hello World" message.
 func (s *Server) HelloWorldHandler(c *gin.Context) {
-	resp := make(map[string]string)
-	resp["message"] = "Hello World"
-
-	c.JSON(http.StatusOK, resp)
-}
-
-func (s *Server) healthHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, s.db.Health())
-}
-
-func (s *Server) websocketHandler(c *gin.Context) {
-	w := c.Writer
-	r := c.Request
-	socket, err := websocket.Accept(w, r, nil)
-
-	if err != nil {
-		log.Printf("could not open websocket: %v", err)
-		_, _ = w.Write([]byte("could not open websocket"))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	defer socket.Close(websocket.StatusGoingAway, "server closing websocket")
-
-	ctx := r.Context()
-	socketCtx := socket.CloseRead(ctx)
-
-	for {
-		payload := fmt.Sprintf("server timestamp: %d", time.Now().UnixNano())
-		err := socket.Write(socketCtx, websocket.MessageText, []byte(payload))
-		if err != nil {
-			break
-		}
-		time.Sleep(time.Second * 2)
-	}
+	c.JSON(http.StatusOK, gin.H{"message": "Hello World"})
 }

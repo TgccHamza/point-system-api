@@ -2,21 +2,24 @@ package handlers
 
 import (
 	"net/http"
-	"point-system-api/internal/database"
-	"point-system-api/internal/models"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+
+	"point-system-api/internal/models"
+	"point-system-api/internal/services"
 )
 
 // CompanyHandler handles HTTP requests for company-related operations.
 type CompanyHandler struct {
-	service database.Service
+	companyService services.CompanyService
 }
 
-// NewCompanyHandler creates a new CompanyHandler instance.
-func NewCompanyHandler(service database.Service) *CompanyHandler {
-	return &CompanyHandler{service: service}
+// NewCompanyHandler creates a new instance of CompanyHandler.
+func NewCompanyHandler(companyService services.CompanyService) *CompanyHandler {
+	return &CompanyHandler{
+		companyService: companyService,
+	}
 }
 
 // CreateCompany handles the creation of a new company.
@@ -27,25 +30,29 @@ func (h *CompanyHandler) CreateCompany(c *gin.Context) {
 		return
 	}
 
-	err := h.service.CreateCompany(company)
+	companyID, err := h.companyService.CreateCompany(c.Request.Context(), company)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create company"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Company created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"id": companyID, "message": "Company created successfully"})
 }
 
-// GetCompany retrieves a company by its ID.
-func (h *CompanyHandler) GetCompany(c *gin.Context) {
+// GetCompanyByID retrieves a company by its ID.
+func (h *CompanyHandler) GetCompanyByID(c *gin.Context) {
 	companyID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid company ID"})
 		return
 	}
 
-	company, err := h.service.GetCompanyByID(companyID)
+	company, err := h.companyService.GetCompanyByID(c.Request.Context(), uint(companyID))
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if company == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
 		return
 	}
@@ -53,11 +60,11 @@ func (h *CompanyHandler) GetCompany(c *gin.Context) {
 	c.JSON(http.StatusOK, company)
 }
 
-// ListCompanies lists all companies.
+// ListCompanies retrieves all companies.
 func (h *CompanyHandler) ListCompanies(c *gin.Context) {
-	companies, err := h.service.ListCompanies()
+	companies, err := h.companyService.ListCompanies(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve companies"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -78,10 +85,14 @@ func (h *CompanyHandler) UpdateCompany(c *gin.Context) {
 		return
 	}
 
-	company.ID = companyID
-	err = h.service.UpdateCompany(company)
+	company.ID = uint(companyID)
+	success, err := h.companyService.UpdateCompany(c.Request.Context(), company)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update company"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !success {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
 		return
 	}
 
@@ -96,9 +107,13 @@ func (h *CompanyHandler) DeleteCompany(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteCompany(companyID)
+	success, err := h.companyService.DeleteCompany(c.Request.Context(), uint(companyID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete company"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !success {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
 		return
 	}
 
