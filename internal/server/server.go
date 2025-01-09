@@ -38,13 +38,14 @@ func NewServer() *Server {
 	companyRepo := repositories.NewCompanyRepository(db.GetDB())
 	employeeRepo := repositories.NewEmployeeRepository(db.GetDB())
 	workDayRepo := repositories.NewWorkDayRepository(db.GetDB())
-
+	rawAttendanceRepo := repositories.NewRawAttendanceRepository(db.GetDB())
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
 	companyService := services.NewCompanyService(companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo)
 	workDayService := services.NewWorkDayService(workDayRepo)
+	rawAttendanceService := services.NewRawAttendanceService(rawAttendanceRepo)
 
 	// Create the HTTP server
 	httpServer := &http.Server{
@@ -63,6 +64,7 @@ func NewServer() *Server {
 		companyService:         companyService,
 		employeeService:        employeeService,
 		workdayService:         workDayService,
+		rawAttendanceService:   rawAttendanceService
 	}
 }
 
