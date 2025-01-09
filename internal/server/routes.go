@@ -2,15 +2,27 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"point-system-api/internal/handlers"
+
+	"github.com/gin-contrib/cors"
 )
 
 // RegisterRoutes sets up all the routes for the application.
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Referer", "Accept", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Health check endpoint
 	r.GET("/health", handlers.HealthHandler(s.db))
@@ -19,7 +31,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	workdayHandler := handlers.NewEmployeeWorkdayHandler(s.employeeWorkdayService)
 	r.POST("/employee-workdays", workdayHandler.CreateEmployeeWorkday)
 	r.GET("/employee-workdays/:id", workdayHandler.GetEmployeeWorkdayByID)
-	r.GET("/employees/:employee_id/workdays", workdayHandler.GetEmployeeWorkdaysByEmployeeID)
+	r.GET("/employees/workdays/:employee_id", workdayHandler.GetEmployeeWorkdaysByEmployeeID)
 	r.PUT("/employee-workdays/:id", workdayHandler.UpdateEmployeeWorkday)
 	r.DELETE("/employee-workdays/:id", workdayHandler.DeleteEmployeeWorkday)
 

@@ -40,6 +40,19 @@ func (s *employeeService) CreateEmployee(ctx context.Context, employee models.Em
 		return 0, errors.New("company ID is required")
 	}
 
+	// Validate that the start and end hours are provided
+	if employee.StartHour.IsZero() {
+		return 0, errors.New("start hour is required")
+	}
+	if employee.EndHour.IsZero() {
+		return 0, errors.New("end hour is required")
+	}
+
+	// Ensure the end hour is after the start hour
+	if !employee.EndHour.After(employee.StartHour) {
+		return 0, errors.New("end hour must be after start hour")
+	}
+
 	// Create the employee in the database
 	err := s.employeeRepo.CreateEmployee(ctx, &employee)
 	if err != nil {
@@ -72,6 +85,19 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employee models.Em
 	// Validate that the employee ID is provided
 	if employee.ID == 0 {
 		return false, errors.New("employee ID is required")
+	}
+
+	// Validate that the start and end hours are provided
+	if employee.StartHour.IsZero() {
+		return false, errors.New("start hour is required")
+	}
+	if employee.EndHour.IsZero() {
+		return false, errors.New("end hour is required")
+	}
+
+	// Ensure the end hour is after the start hour
+	if !employee.EndHour.After(employee.StartHour) {
+		return false, errors.New("end hour must be after start hour")
 	}
 
 	// Update the employee in the database

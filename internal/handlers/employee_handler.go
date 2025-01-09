@@ -30,6 +30,22 @@ func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
 		return
 	}
 
+	// Ensure the start and end hours are provided
+	if employee.StartHour.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start hour is required"})
+		return
+	}
+	if employee.EndHour.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour is required"})
+		return
+	}
+
+	// Ensure the end hour is after the start hour
+	if !employee.EndHour.After(employee.StartHour) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour must be after start hour"})
+		return
+	}
+
 	employeeID, err := h.employeeService.CreateEmployee(c.Request.Context(), employee)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -88,6 +104,22 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 	var employee models.Employee
 	if err := c.ShouldBindJSON(&employee); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	// Ensure the start and end hours are provided
+	if employee.StartHour.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start hour is required"})
+		return
+	}
+	if employee.EndHour.IsZero() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour is required"})
+		return
+	}
+
+	// Ensure the end hour is after the start hour
+	if !employee.EndHour.After(employee.StartHour) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour must be after start hour"})
 		return
 	}
 
