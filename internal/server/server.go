@@ -22,7 +22,7 @@ type Server struct {
 	userService            services.UserService
 	companyService         services.CompanyService
 	employeeService        services.EmployeeService
-	employeeWorkdayService services.EmployeeWorkdayService
+	workDayService         services.WorkDayService
 }
 
 // NewServer creates a new instance of the Server.
@@ -37,13 +37,14 @@ func NewServer() *Server {
 	userRepo := repositories.NewUserRepository(db.GetDB())
 	companyRepo := repositories.NewCompanyRepository(db.GetDB())
 	employeeRepo := repositories.NewEmployeeRepository(db.GetDB())
-	workdayRepo := repositories.NewEmployeeWorkdayRepository(db.GetDB()) // Add this
+	workDayRepo := repositories.NewWorkDayRepository(db.GetDB())
+
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
 	companyService := services.NewCompanyService(companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo)
-	employeeWorkdayService := services.NewEmployeeWorkdayService(workdayRepo) // Add this
+	workDayService := services.NewWorkDayService(workDayRepo)
 
 	// Create the HTTP server
 	httpServer := &http.Server{
@@ -61,7 +62,7 @@ func NewServer() *Server {
 		userService:            userService,
 		companyService:         companyService,
 		employeeService:        employeeService,
-		employeeWorkdayService: employeeWorkdayService,
+		workdayService:         workDayService,
 	}
 }
 
