@@ -81,7 +81,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	attendanceHandler := handlers.NewAttendanceHandler(s.attendanceService)
 	r.POST("/process-hex", attendanceHandler.ProcessHexData)
-
+	deviceHandler := handlers.NewDeviceHandler(s)
+	RegisterDeviceRoutes(r, deviceHandler)
 	s.httpServer.Handler = r
 	return r
 }
@@ -89,4 +90,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 // HelloWorldHandler returns a simple "Hello World" message.
 func (s *Server) HelloWorldHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Hello World"})
+}
+
+func RegisterDeviceRoutes(router *gin.Engine, deviceHandler *handlers.DeviceHandler) {
+	devices := router.Group("/devices")
+	{
+		devices.GET("/", deviceHandler.GetAllDevices)      // Retrieve all devices (with filters)
+		devices.GET("/:id", deviceHandler.GetDeviceByID)   // Retrieve a single device
+		devices.POST("/", deviceHandler.CreateDevice)      // Create a new device
+		devices.PUT("/:id", deviceHandler.UpdateDevice)    // Update a device
+		devices.DELETE("/:id", deviceHandler.DeleteDevice) // Delete a device
+	}
 }

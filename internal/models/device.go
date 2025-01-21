@@ -2,7 +2,7 @@ package models
 
 import "gorm.io/gorm"
 
-type DeviceModel struct {
+type Device struct {
 	gorm.Model
 	Name         string `gorm:"size:255;null"`
 	SerialNumber string `gorm:"size:255;not null;unique"`

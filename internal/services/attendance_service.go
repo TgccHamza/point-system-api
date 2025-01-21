@@ -7,26 +7,32 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 
 	"point-system-api/internal/models"
+	"point-system-api/internal/repositories"
 	"point-system-api/pkg/utils"
 )
 
 // AttendanceService handles business logic for attendance logs.
 type AttendanceService struct {
-	db *gorm.DB
+	db             *gorm.DB
+	deviceRepo     *repositories.DeviceRepository
+	attendanceRepo *repositories.AttendanceRepository
 }
 
 // NewAttendanceService creates a new instance of AttendanceService.
-func NewAttendanceService(db *gorm.DB) *AttendanceService {
+func NewAttendanceService(db *gorm.DB, deviceRepo *repositories.DeviceRepository, attendanceRepo *repositories.AttendanceRepository) *AttendanceService {
 	return &AttendanceService{
-		db: db,
+		db:             db,
+		deviceRepo:     deviceRepo,
+		attendanceRepo: attendanceRepo,
 	}
 }
 
-// CreateAttendanceLog processes hex data and saves the attendance log to the database.
+// CreateAttendanceLog processes hex data, checks/creates the device, and saves the attendance log to the database.
 func (s *AttendanceService) CreateAttendanceLog(ctx context.Context, serialNumber string, hexData string) (*models.AttendanceLog, error) {
 	// Convert the hex string to bytes
 	byteData, err := hex.DecodeString(hexData)
@@ -64,6 +70,28 @@ func (s *AttendanceService) CreateAttendanceLog(ctx context.Context, serialNumbe
 	timestamp := binary.LittleEndian.Uint32(record.Timestamp[:])
 	decodedTime := utils.DecodeTime(timestamp)
 
+	// Check if the device exists, or create it if not
+	var device models.DeviceModel
+	err = s.deviceRepo.FindDeviceBySerial(serialNumber, &device)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Device does not exist; create it
+			device = models.DeviceModel{
+				SerialNumber: serialNumber,
+				Name:         "Unknown Device",   // Placeholder, modify as needed
+				Location:     "Unknown Location", // Placeholder, modify as needed
+				CompanyID:    0,                  // Set default or retrieve dynamically if needed
+				CreatedAt:    time.Now(),
+				UpdatedAt:    time.Now(),
+			}
+			if err := s.deviceRepo.CreateDevice(&device); err != nil {
+				return nil, fmt.Errorf("failed to create device: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to check device: %w", err)
+		}
+	}
+
 	// Create the attendance log model
 	attendanceLog := models.AttendanceLog{
 		SerialNumber: serialNumber,
@@ -74,10 +102,10 @@ func (s *AttendanceService) CreateAttendanceLog(ctx context.Context, serialNumbe
 		Timestamp:    decodedTime,
 	}
 
-	// Save the model to the database
-	result := s.db.WithContext(ctx).Create(&attendanceLog)
-	if result.Error != nil {
-		return nil, result.Error
+	// Save the attendance log to the database
+	result := s.attendanceRepo.CreateAttendanceLog(ctx, &attendanceLog)
+	if result != nil {
+		return nil, result
 	}
 
 	return &attendanceLog, nil
