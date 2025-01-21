@@ -37,6 +37,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_USER")
 	c.JSON(http.StatusCreated, gin.H{"id": userID, "message": "User created successfully"})
 }
 
@@ -82,15 +83,40 @@ func (h *UserHandler) GetUserByUsername(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// ListUsers retrieves all users.
+// ListUsers retrieves all users with optional filters, pagination, and search.
 func (h *UserHandler) ListUsers(c *gin.Context) {
-	users, err := h.userService.ListUsers(c.Request.Context())
+	// Extract query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
+	filters := map[string]interface{}{}
+
+	// Add search filter if provided
+	if search != "" {
+		filters["search"] = search
+	}
+
+	// Add other filters from query parameters
+	for key, values := range c.Request.URL.Query() {
+		if key != "page" && key != "limit" && key != "search" {
+			filters[key] = values[0]
+		}
+	}
+
+	// Call the service to get paginated and filtered results
+	users, total, err := h.userService.ListUsers(c.Request.Context(), page, limit, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, users)
+	// Return the response with pagination metadata
+	c.JSON(http.StatusOK, gin.H{
+		"data":  users,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 // UpdateUser handles updating a user by their ID.
@@ -118,6 +144,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("UPDATE_USER")
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
@@ -139,6 +166,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_USER")
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
@@ -165,4 +193,15 @@ func (h *UserHandler) AuthenticateUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+// ListUsersForSelect retrieves all users for use in select options.
+func (h *UserHandler) ListUsersForSelect(c *gin.Context) {
+	users, err := h.userService.ListUsersForSelect(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
 }

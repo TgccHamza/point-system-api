@@ -18,6 +18,7 @@ type EmployeeRepository interface {
 	UpdateEmployee(ctx context.Context, employee *models.Employee) error
 	DeleteEmployee(ctx context.Context, id uint) error
 	FetchEmployees(ctx context.Context) ([]*models.Employee, error)
+	ListEmployeesWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]*models.Employee, int64, error) // New method
 }
 
 // employeeRepository implements the EmployeeRepository interface.
@@ -108,4 +109,38 @@ func (r *employeeRepository) FetchEmployees(ctx context.Context) ([]*models.Empl
 		return nil, fmt.Errorf("failed to fetch employees: %w", err)
 	}
 	return employees, nil
+}
+
+// ListEmployeesWithFilters retrieves employees with pagination, filtering, and search.
+func (r *employeeRepository) ListEmployeesWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]*models.Employee, int64, error) {
+	offset := (page - 1) * limit
+
+	// Build the query
+	query := r.db.Model(&models.Employee{})
+
+	// Apply search filter
+	if search, ok := filters["search"]; ok {
+		query = query.Where("registration_number LIKE ? OR qualification LIKE ?", "%"+search.(string)+"%", "%"+search.(string)+"%")
+	}
+
+	// Apply other filters
+	for key, value := range filters {
+		if key != "search" {
+			query = query.Where(key+" = ?", value)
+		}
+	}
+
+	// Count total records
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count employees: %w", err)
+	}
+
+	// Apply pagination
+	var employees []*models.Employee
+	if err := query.Offset(offset).Limit(limit).Find(&employees).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list employees: %w", err)
+	}
+
+	return employees, total, nil
 }

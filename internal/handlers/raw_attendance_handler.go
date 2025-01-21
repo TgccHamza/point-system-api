@@ -65,6 +65,7 @@ func (h *RawAttendanceHandler) CreateRawAttendance(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_RAWATTENDANCE")
 	c.JSON(http.StatusCreated, gin.H{"message": "Raw attendance created successfully"})
 }
 
@@ -81,6 +82,7 @@ func (h *RawAttendanceHandler) CreateManyRawAttendances(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_RAWATTENDANCE")
 	c.JSON(http.StatusCreated, gin.H{"message": "Raw attendances created successfully"})
 }
 
@@ -142,6 +144,7 @@ func (h *RawAttendanceHandler) UpdateRawAttendance(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("UPDATE_RAWATTENDANCE")
 	c.JSON(http.StatusOK, gin.H{"message": "Raw attendance updated successfully"})
 }
 
@@ -158,5 +161,6 @@ func (h *RawAttendanceHandler) DeleteRawAttendance(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_RAWATTENDANCE")
 	c.JSON(http.StatusOK, gin.H{"message": "Raw attendance deleted successfully"})
 }

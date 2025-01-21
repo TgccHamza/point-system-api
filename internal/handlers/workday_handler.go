@@ -35,6 +35,7 @@ func (h *WorkDayHandler) CreateWorkDay(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_WORKDAY")
 	c.JSON(http.StatusCreated, gin.H{"message": "Workday created successfully"})
 }
 
@@ -90,6 +91,7 @@ func (h *WorkDayHandler) UpdateWorkDay(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("UPDATE_WORKDAY")
 	c.JSON(http.StatusOK, gin.H{"message": "Workday updated successfully"})
 }
 
@@ -106,5 +108,6 @@ func (h *WorkDayHandler) DeleteWorkDay(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_WORKDAY")
 	c.JSON(http.StatusOK, gin.H{"message": "Workday deleted successfully"})
 }

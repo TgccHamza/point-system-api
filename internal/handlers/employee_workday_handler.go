@@ -59,5 +59,6 @@ func (h *EmployeeWorkDayHandler) UpdateEmployeeWorkDay(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("UPDATE_WORKDAYEMPLOYEES")
 	c.JSON(http.StatusOK, gin.H{"message": "Employee work day updated successfully"})
 }

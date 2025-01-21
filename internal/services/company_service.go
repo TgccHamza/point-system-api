@@ -13,9 +13,10 @@ import (
 type CompanyService interface {
 	CreateCompany(ctx context.Context, company models.Company) (uint, error)
 	GetCompanyByID(ctx context.Context, id uint) (*models.Company, error)
-	ListCompanies(ctx context.Context) ([]models.Company, error)
+	ListCompanies(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.Company, int64, error)
 	UpdateCompany(ctx context.Context, company models.Company) (bool, error)
 	DeleteCompany(ctx context.Context, id uint) (bool, error)
+	ListCompaniesForSelect(ctx context.Context) ([]map[string]interface{}, error)
 }
 
 // companyService implements the CompanyService interface.
@@ -64,13 +65,23 @@ func (s *companyService) GetCompanyByID(ctx context.Context, id uint) (*models.C
 	return company, nil
 }
 
-// ListCompanies retrieves all companies from the database.
-func (s *companyService) ListCompanies(ctx context.Context) ([]models.Company, error) {
-	companies, err := s.companyRepo.ListCompanies(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list companies: %w", err)
+// ListCompanies retrieves all companies with pagination, filtering, and search.
+func (s *companyService) ListCompanies(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.Company, int64, error) {
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
 	}
-	return companies, nil
+	if limit < 1 {
+		limit = 10
+	}
+
+	// Call the repository to get paginated and filtered results
+	companies, total, err := s.companyRepo.ListCompaniesWithFilters(ctx, page, limit, filters)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list companies: %w", err)
+	}
+
+	return companies, total, nil
 }
 
 // UpdateCompany updates an existing company in the database.
@@ -103,4 +114,23 @@ func (s *companyService) DeleteCompany(ctx context.Context, id uint) (bool, erro
 	}
 
 	return success, nil
+}
+
+// ListCompaniesForSelect retrieves all companies for use in select options.
+func (s *companyService) ListCompaniesForSelect(ctx context.Context) ([]map[string]interface{}, error) {
+	companies, err := s.companyRepo.ListCompanies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list companies: %w", err)
+	}
+
+	// Simplify the response for select options
+	var result []map[string]interface{}
+	for _, company := range companies {
+		result = append(result, map[string]interface{}{
+			"id":          company.ID,
+			"companyName": company.CompanyName,
+		})
+	}
+
+	return result, nil
 }

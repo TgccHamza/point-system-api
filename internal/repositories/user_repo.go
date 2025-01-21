@@ -19,6 +19,7 @@ type UserRepository interface {
 	ListUsers(ctx context.Context) ([]models.User, error)
 	UpdateUser(ctx context.Context, user models.User) (bool, error)
 	DeleteUser(ctx context.Context, id uint) (bool, error)
+	ListUsersWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.User, int64, error)
 }
 
 // userRepository implements the UserRepository interface.
@@ -109,4 +110,38 @@ func (r *userRepository) DeleteUser(ctx context.Context, id uint) (bool, error) 
 		return false, fmt.Errorf("failed to delete user: %w", err)
 	}
 	return true, nil
+}
+
+// ListUsersWithFilters retrieves users with pagination, filtering, and search.
+func (r *userRepository) ListUsersWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.User, int64, error) {
+	offset := (page - 1) * limit
+
+	// Build the query
+	query := r.db.Model(&models.User{})
+
+	// Apply search filter
+	if search, ok := filters["search"]; ok {
+		query = query.Where("username LIKE ? OR first_name LIKE ? OR last_name LIKE ?", "%"+search.(string)+"%", "%"+search.(string)+"%", "%"+search.(string)+"%")
+	}
+
+	// Apply other filters
+	for key, value := range filters {
+		if key != "search" {
+			query = query.Where(key+" = ?", value)
+		}
+	}
+
+	// Count total records
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	// Apply pagination
+	var users []models.User
+	if err := query.Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list users: %w", err)
+	}
+
+	return users, total, nil
 }

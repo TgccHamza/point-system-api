@@ -15,10 +15,11 @@ type UserService interface {
 	CreateUser(ctx context.Context, user models.User) (uint, error)
 	GetUserByID(ctx context.Context, id uint) (*models.User, error)
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
-	ListUsers(ctx context.Context) ([]models.User, error)
 	UpdateUser(ctx context.Context, user models.User) (bool, error)
 	DeleteUser(ctx context.Context, id uint) (bool, error)
 	AuthenticateUser(ctx context.Context, username, password string) (*models.User, error)
+	ListUsersForSelect(ctx context.Context) ([]map[string]interface{}, error)
+	ListUsers(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.User, int64, error)
 }
 
 // userService implements the UserService interface.
@@ -78,15 +79,6 @@ func (s *userService) GetUserByUsername(ctx context.Context, username string) (*
 	return user, nil
 }
 
-// ListUsers retrieves all users from the database.
-func (s *userService) ListUsers(ctx context.Context) ([]models.User, error) {
-	users, err := s.userRepo.ListUsers(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list users: %w", err)
-	}
-	return users, nil
-}
-
 // UpdateUser updates an existing user in the database.
 func (s *userService) UpdateUser(ctx context.Context, user models.User) (bool, error) {
 	// Hash the user's password if it's being updated
@@ -133,4 +125,43 @@ func (s *userService) AuthenticateUser(ctx context.Context, username, password s
 	}
 
 	return user, nil
+}
+
+// ListUsersForSelect retrieves all users for use in select options.
+func (s *userService) ListUsersForSelect(ctx context.Context) ([]map[string]interface{}, error) {
+	users, err := s.userRepo.ListUsers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+
+	// Simplify the response for select options
+	var result []map[string]interface{}
+	for _, user := range users {
+		result = append(result, map[string]interface{}{
+			"id":       user.ID,
+			"username": user.Username,
+		})
+	}
+
+	return result, nil
+}
+
+// ListUsers retrieves all users with pagination, filtering, and search.
+func (s *userService) ListUsers(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.User, int64, error) {
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	// Call the repository to get paginated and filtered results
+	users, total, err := s.userRepo.ListUsersWithFilters(ctx, page, limit, filters)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list users: %w", err)
+	}
+
+	return users, total, nil
 }

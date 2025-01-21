@@ -86,6 +86,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_DEVICE")
 	c.JSON(http.StatusCreated, device)
 }
 
@@ -112,6 +113,7 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("UPDATE_DEVICE")
 	c.JSON(http.StatusOK, gin.H{"message": "Device updated successfully"})
 }
 
@@ -131,5 +133,6 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_DEVICE")
 	c.JSON(http.StatusOK, gin.H{"message": "Device deleted successfully"})
 }

@@ -58,6 +58,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.PUT("/users/:id", userHandler.UpdateUser)
 	r.DELETE("/users/:id", userHandler.DeleteUser)
 	r.POST("/users/authenticate", userHandler.AuthenticateUser)
+	r.GET("/users/select", userHandler.ListUsersForSelect)
 
 	// Company routes
 	companyHandler := handlers.NewCompanyHandler(s.companyService)
@@ -66,6 +67,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/companies", companyHandler.ListCompanies)
 	r.PUT("/companies/:id", companyHandler.UpdateCompany)
 	r.DELETE("/companies/:id", companyHandler.DeleteCompany)
+	r.GET("/companies/select", companyHandler.ListCompaniesForSelect)
 
 	// Employee routes
 	employeeHandler := handlers.NewEmployeeHandler(s.employeeService)
@@ -85,6 +87,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/attendance-logs/:id", attendanceHandler.GetAttendanceLogByID)
 	deviceHandler := handlers.NewDeviceHandler(s.deviceService)
 	RegisterDeviceRoutes(r, deviceHandler)
+
+	r.GET("/ws", handlers.ServeWs)
 	s.httpServer.Handler = r
 	return r
 }

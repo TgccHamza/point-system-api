@@ -36,6 +36,7 @@ func (h *CompanyHandler) CreateCompany(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_COMPANY")
 	c.JSON(http.StatusCreated, gin.H{"id": companyID, "message": "Company created successfully"})
 }
 
@@ -60,15 +61,40 @@ func (h *CompanyHandler) GetCompanyByID(c *gin.Context) {
 	c.JSON(http.StatusOK, company)
 }
 
-// ListCompanies retrieves all companies.
+// ListCompanies retrieves all companies with optional filters, pagination, and search.
 func (h *CompanyHandler) ListCompanies(c *gin.Context) {
-	companies, err := h.companyService.ListCompanies(c.Request.Context())
+	// Extract query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
+	filters := map[string]interface{}{}
+
+	// Add search filter if provided
+	if search != "" {
+		filters["search"] = search
+	}
+
+	// Add other filters from query parameters
+	for key, values := range c.Request.URL.Query() {
+		if key != "page" && key != "limit" && key != "search" {
+			filters[key] = values[0]
+		}
+	}
+
+	// Call the service to get paginated and filtered results
+	companies, total, err := h.companyService.ListCompanies(c.Request.Context(), page, limit, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, companies)
+	// Return the response with pagination metadata
+	c.JSON(http.StatusOK, gin.H{
+		"data":  companies,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 // UpdateCompany handles updating a company by its ID.
@@ -96,6 +122,7 @@ func (h *CompanyHandler) UpdateCompany(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("UPDATE_COMPANY")
 	c.JSON(http.StatusOK, gin.H{"message": "Company updated successfully"})
 }
 
@@ -117,5 +144,17 @@ func (h *CompanyHandler) DeleteCompany(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_COMPANY")
 	c.JSON(http.StatusOK, gin.H{"message": "Company deleted successfully"})
+}
+
+// ListCompaniesForSelect retrieves all companies for use in select options.
+func (h *CompanyHandler) ListCompaniesForSelect(c *gin.Context) {
+	companies, err := h.companyService.ListCompaniesForSelect(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, companies)
 }

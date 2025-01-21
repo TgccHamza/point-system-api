@@ -18,6 +18,7 @@ type CompanyRepository interface {
 	ListCompanies(ctx context.Context) ([]models.Company, error)
 	UpdateCompany(ctx context.Context, company models.Company) (bool, error)
 	DeleteCompany(ctx context.Context, id uint) (bool, error)
+	ListCompaniesWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.Company, int64, error) // New method
 }
 
 // companyRepository implements the CompanyRepository interface.
@@ -109,4 +110,38 @@ func (r *companyRepository) DeleteCompany(ctx context.Context, id uint) (bool, e
 	}
 
 	return true, nil
+}
+
+// ListCompaniesWithFilters retrieves companies with pagination, filtering, and search.
+func (r *companyRepository) ListCompaniesWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]models.Company, int64, error) {
+	offset := (page - 1) * limit
+
+	// Build the query
+	query := r.db.Model(&models.Company{})
+
+	// Apply search filter
+	if search, ok := filters["search"]; ok {
+		query = query.Where("company_name LIKE ?", "%"+search.(string)+"%")
+	}
+
+	// Apply other filters
+	for key, value := range filters {
+		if key != "search" {
+			query = query.Where(key+" = ?", value)
+		}
+	}
+
+	// Count total records
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count companies: %w", err)
+	}
+
+	// Apply pagination
+	var companies []models.Company
+	if err := query.Offset(offset).Limit(limit).Find(&companies).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list companies: %w", err)
+	}
+
+	return companies, total, nil
 }

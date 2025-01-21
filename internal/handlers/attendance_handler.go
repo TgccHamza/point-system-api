@@ -38,6 +38,7 @@ func (h *AttendanceHandler) CreateAttendanceLog(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_ATTENDANCELOG")
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Attendance log saved successfully",
 		"data":    attendanceLog,
@@ -100,5 +101,6 @@ func (h *AttendanceHandler) DeleteAttendanceLog(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_ATTENDANCELOG")
 	c.JSON(http.StatusOK, gin.H{"message": "Attendance log deleted successfully"})
 }

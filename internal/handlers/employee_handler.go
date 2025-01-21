@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -25,45 +24,54 @@ func NewEmployeeHandler(employeeService services.EmployeeService) *EmployeeHandl
 
 // CreateEmployee handles the creation of a new employee.
 func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
-	var employee struct {
-		models.Employee
-		UserID    string `json:"UserID"`
-		CompanyID string `json:"CompanyID"`
+	var request struct {
+		RegistrationNumber string `json:"registration_number"`
+		Qualification      string `json:"qualification"`
+		CompanyID          uint   `json:"company_id"`
+		StartHour          string `json:"start_hour"`
+		EndHour            string `json:"end_hour"`
+		FirstName          string `json:"first_name"`
+		LastName           string `json:"last_name"`
+		Username           string `json:"username"`
+		Password           string `json:"password"`
 	}
 
-	// Bind the JSON payload into the employee struct
-	if err := c.ShouldBindJSON(&employee); err != nil {
+	// Bind the JSON payload into the request struct
+	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
-	// Parse UserID and CompanyID
-	userID, err := strconv.Atoi(employee.UserID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UserID"})
-		return
+	// Map the request to the Employee and User models
+	employee := models.Employee{
+		RegistrationNumber: request.RegistrationNumber,
+		Qualification:      request.Qualification,
+		CompanyID:          request.CompanyID,
+		StartHour:          request.StartHour,
+		EndHour:            request.EndHour,
 	}
-	employee.Employee.UserID = uint(userID)
 
-	companyID, err := strconv.Atoi(employee.CompanyID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid CompanyID"})
-		return
+	user := models.User{
+		FirstName: request.FirstName,
+		LastName:  request.LastName,
+		Username:  request.Username,
+		Password:  request.Password,
 	}
-	employee.Employee.CompanyID = uint(companyID)
 
-	// Print employee details for debugging
-	fmt.Printf("%+v\n", employee.Employee)
-
-	// Create employee using the employee service
-	employeeID, err := h.employeeService.CreateEmployee(c.Request.Context(), employee.Employee)
+	// Call the service to create the employee
+	employeeID, err := h.employeeService.CreateEmployee(c.Request.Context(), employee, user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	manager.broadcast <- []byte("CREATE_EMPLOYEE")
 	// Respond with success
-	c.JSON(http.StatusCreated, gin.H{"id": employeeID, "message": "Employee created successfully"})
+	c.JSON(http.StatusCreated, gin.H{
+		"id":      employeeID,
+		"data":    employee,
+		"message": "Employee created successfully",
+	})
 }
 
 // GetEmployeeByID retrieves an employee by their ID.
@@ -104,32 +112,64 @@ func (h *EmployeeHandler) GetEmployeesByCompanyID(c *gin.Context) {
 	c.JSON(http.StatusOK, employees)
 }
 
-// UpdateEmployee handles updating an employee by their ID.
+// UpdateEmployee handles updating an existing employee.
 func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
-	employeeID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid employee ID"})
-		return
+	var request struct {
+		ID                 uint   `json:"id"`
+		RegistrationNumber string `json:"registration_number"`
+		Qualification      string `json:"qualification"`
+		CompanyID          uint   `json:"company_id"`
+		StartHour          string `json:"start_hour"`
+		EndHour            string `json:"end_hour"`
+		FirstName          string `json:"first_name"`
+		LastName           string `json:"last_name"`
+		Username           string `json:"username"`
+		Password           string `json:"password"`
 	}
 
-	var employee models.Employee
-	if err := c.ShouldBindJSON(&employee); err != nil {
+	// Bind the JSON payload into the request struct
+	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
-	employee.ID = uint(employeeID)
-	success, err := h.employeeService.UpdateEmployee(c.Request.Context(), employee)
+	// Map the request to the Employee and User models
+	employee := models.Employee{
+		ID:                 request.ID,
+		RegistrationNumber: request.RegistrationNumber,
+		Qualification:      request.Qualification,
+		CompanyID:          request.CompanyID,
+		StartHour:          request.StartHour,
+		EndHour:            request.EndHour,
+	}
+
+	var userUpdates *models.User
+	if request.FirstName != "" || request.LastName != "" || request.Username != "" || request.Password != "" {
+		userUpdates = &models.User{
+			FirstName: request.FirstName,
+			LastName:  request.LastName,
+			Username:  request.Username,
+			Password:  request.Password,
+		}
+	}
+
+	// Call the service to update the employee
+	success, err := h.employeeService.UpdateEmployee(c.Request.Context(), employee, userUpdates)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	if !success {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Employee not found"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Employee updated successfully"})
+	manager.broadcast <- []byte("UPDATE_EMPLOYEE")
+	// Respond with success
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Employee updated successfully",
+	})
 }
 
 // DeleteEmployee handles deleting an employee by their ID.
@@ -150,16 +190,42 @@ func (h *EmployeeHandler) DeleteEmployee(c *gin.Context) {
 		return
 	}
 
+	manager.broadcast <- []byte("DELETE_EMPLOYEE")
 	c.JSON(http.StatusOK, gin.H{"message": "Employee deleted successfully"})
 }
 
-// FetchEmployees retrieves all employees.
+// FetchEmployees retrieves all employees with optional filters, pagination, and search.
 func (h *EmployeeHandler) FetchEmployees(c *gin.Context) {
-	employees, err := h.employeeService.FetchEmployees(c.Request.Context())
+	// Extract query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
+	filters := map[string]interface{}{}
+
+	// Add search filter if provided
+	if search != "" {
+		filters["search"] = search
+	}
+
+	// Add other filters from query parameters
+	for key, values := range c.Request.URL.Query() {
+		if key != "page" && key != "limit" && key != "search" {
+			filters[key] = values[0]
+		}
+	}
+
+	// Call the service to get paginated and filtered results
+	employees, total, err := h.employeeService.FetchEmployees(c.Request.Context(), page, limit, filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, employees)
+	// Return the response with pagination metadata
+	c.JSON(http.StatusOK, gin.H{
+		"data":  employees,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
