@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"
@@ -36,7 +35,7 @@ func (s *workDayService) CreateWorkDay(ctx context.Context, workday *models.Work
 		return errors.New("workday is nil")
 	}
 
-	if workday.Date.IsZero() {
+	if workday.Date.ToTime().IsZero() {
 		return errors.New("date is required")
 	}
 

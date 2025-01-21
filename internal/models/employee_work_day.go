@@ -7,7 +7,8 @@ import (
 )
 
 // EmployeeWorkday represents a single entry in the table
-type EmployeeWorkday struct {
+type EmployeeWorkDay struct {
+	ID         uint      `gorm:"primaryKey"`
 	WorkDayID  uint      `gorm:"not null"`
 	EmployeeID uint      `gorm:"not null"`
 	StartTime  time.Time // Start time of work

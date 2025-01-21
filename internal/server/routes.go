@@ -41,7 +41,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.PUT("/raw-attendances/:id", rawAttendanceHandler.UpdateRawAttendance)
 	r.DELETE("/raw-attendances/:id", rawAttendanceHandler.DeleteRawAttendance)
 
-
 	// WorkDay routes
 	workDayHandler := handlers.NewWorkDayHandler(s.workDayService)
 	r.POST("/workdays", workDayHandler.CreateWorkDay)
@@ -73,11 +72,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.POST("/employees", employeeHandler.CreateEmployee)
 	r.GET("/employees/:id", employeeHandler.GetEmployeeByID)
 	r.GET("/employees/by-company/:id", employeeHandler.GetEmployeesByCompanyID)
+	r.GET("/employees", employeeHandler.FetchEmployees)
 	r.PUT("/employees/:id", employeeHandler.UpdateEmployee)
 	r.DELETE("/employees/:id", employeeHandler.DeleteEmployee)
 
 	// Hello World endpoint
 	r.GET("/", s.HelloWorldHandler)
+
+	attendanceHandler := handlers.NewAttendanceHandler(s.attendanceService)
+	r.POST("/process-hex", attendanceHandler.ProcessHexData)
 
 	s.httpServer.Handler = r
 	return r

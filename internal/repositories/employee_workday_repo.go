@@ -12,9 +12,9 @@ import (
 
 // EmployeeWorkDayRepository defines the interface for employee workday-related database operations.
 type EmployeeWorkDayRepository interface {
-	CreateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkday) error
-	GetEmployeeWorkDayByID(ctx context.Context, id uint) (*models.EmployeeWorkday, error)
-	UpdateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkday) error
+	CreateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkDay) error
+	GetEmployeeWorkDayByID(ctx context.Context, id uint) (*models.EmployeeWorkDay, error)
+	UpdateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkDay) error
 }
 
 // employeeWorkDayRepository implements the EmployeeWorkDayRepository interface.
@@ -30,7 +30,7 @@ func NewEmployeeWorkDayRepository(db *gorm.DB) EmployeeWorkDayRepository {
 }
 
 // CreateEmployeeWorkDay inserts a new employee workday record into the database.
-func (r *employeeWorkDayRepository) CreateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkday) error {
+func (r *employeeWorkDayRepository) CreateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkDay) error {
 	if employeeWorkDay == nil {
 		return errors.New("employee workday is nil")
 	}
@@ -51,12 +51,12 @@ func (r *employeeWorkDayRepository) CreateEmployeeWorkDay(ctx context.Context, e
 }
 
 // GetEmployeeWorkDayByID retrieves an employee workday record by its ID.
-func (r *employeeWorkDayRepository) GetEmployeeWorkDayByID(ctx context.Context, id uint) (*models.EmployeeWorkday, error) {
+func (r *employeeWorkDayRepository) GetEmployeeWorkDayByID(ctx context.Context, id uint) (*models.EmployeeWorkDay, error) {
 	if id == 0 {
 		return nil, errors.New("invalid employee workday ID")
 	}
 
-	var employeeWorkDay models.EmployeeWorkday
+	var employeeWorkDay models.EmployeeWorkDay
 	if err := r.db.WithContext(ctx).First(&employeeWorkDay, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil // No employee workday found
@@ -67,7 +67,7 @@ func (r *employeeWorkDayRepository) GetEmployeeWorkDayByID(ctx context.Context, 
 }
 
 // UpdateEmployeeWorkDay updates an existing employee workday record in the database.
-func (r *employeeWorkDayRepository) UpdateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkday) error {
+func (r *employeeWorkDayRepository) UpdateEmployeeWorkDay(ctx context.Context, employeeWorkDay *models.EmployeeWorkDay) error {
 	if employeeWorkDay == nil || employeeWorkDay.ID == 0 {
 		return errors.New("invalid employee workday data")
 	}

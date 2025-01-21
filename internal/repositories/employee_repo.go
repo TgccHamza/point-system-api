@@ -17,6 +17,7 @@ type EmployeeRepository interface {
 	GetEmployeesByCompanyID(ctx context.Context, companyID uint) ([]*models.Employee, error)
 	UpdateEmployee(ctx context.Context, employee *models.Employee) error
 	DeleteEmployee(ctx context.Context, id uint) error
+	FetchEmployees(ctx context.Context) ([]*models.Employee, error)
 }
 
 // employeeRepository implements the EmployeeRepository interface.
@@ -98,4 +99,13 @@ func (r *employeeRepository) DeleteEmployee(ctx context.Context, id uint) error 
 	}
 
 	return nil
+}
+
+// FetchEmployees retrieves all employees from the database.
+func (r *employeeRepository) FetchEmployees(ctx context.Context) ([]*models.Employee, error) {
+	var employees []*models.Employee
+	if err := r.db.WithContext(ctx).Find(&employees).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch employees: %w", err)
+	}
+	return employees, nil
 }

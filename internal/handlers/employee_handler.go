@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -24,34 +25,44 @@ func NewEmployeeHandler(employeeService services.EmployeeService) *EmployeeHandl
 
 // CreateEmployee handles the creation of a new employee.
 func (h *EmployeeHandler) CreateEmployee(c *gin.Context) {
-	var employee models.Employee
+	var employee struct {
+		models.Employee
+		UserID    string `json:"UserID"`
+		CompanyID string `json:"CompanyID"`
+	}
+
+	// Bind the JSON payload into the employee struct
 	if err := c.ShouldBindJSON(&employee); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
-	// Ensure the start and end hours are provided
-	if employee.StartHour.IsZero() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "start hour is required"})
+	// Parse UserID and CompanyID
+	userID, err := strconv.Atoi(employee.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UserID"})
 		return
 	}
-	if employee.EndHour.IsZero() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour is required"})
-		return
-	}
+	employee.Employee.UserID = uint(userID)
 
-	// Ensure the end hour is after the start hour
-	if !employee.EndHour.After(employee.StartHour) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour must be after start hour"})
+	companyID, err := strconv.Atoi(employee.CompanyID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid CompanyID"})
 		return
 	}
+	employee.Employee.CompanyID = uint(companyID)
 
-	employeeID, err := h.employeeService.CreateEmployee(c.Request.Context(), employee)
+	// Print employee details for debugging
+	fmt.Printf("%+v\n", employee.Employee)
+
+	// Create employee using the employee service
+	employeeID, err := h.employeeService.CreateEmployee(c.Request.Context(), employee.Employee)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Respond with success
 	c.JSON(http.StatusCreated, gin.H{"id": employeeID, "message": "Employee created successfully"})
 }
 
@@ -107,22 +118,6 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		return
 	}
 
-	// Ensure the start and end hours are provided
-	if employee.StartHour.IsZero() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "start hour is required"})
-		return
-	}
-	if employee.EndHour.IsZero() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour is required"})
-		return
-	}
-
-	// Ensure the end hour is after the start hour
-	if !employee.EndHour.After(employee.StartHour) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "end hour must be after start hour"})
-		return
-	}
-
 	employee.ID = uint(employeeID)
 	success, err := h.employeeService.UpdateEmployee(c.Request.Context(), employee)
 	if err != nil {
@@ -156,4 +151,15 @@ func (h *EmployeeHandler) DeleteEmployee(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Employee deleted successfully"})
+}
+
+// FetchEmployees retrieves all employees.
+func (h *EmployeeHandler) FetchEmployees(c *gin.Context) {
+	employees, err := h.employeeService.FetchEmployees(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, employees)
 }

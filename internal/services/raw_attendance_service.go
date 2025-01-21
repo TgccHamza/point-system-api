@@ -2,8 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"

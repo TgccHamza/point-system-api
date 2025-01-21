@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"
@@ -72,7 +73,7 @@ func (s *employeeWorkDayService) GenerateEmployeeWorkDay(ctx context.Context, wo
 		}
 
 		// Create the EmployeeWorkDay record
-		employeeWorkDay := &models.EmployeeWorkday{
+		employeeWorkDay := &models.EmployeeWorkDay{
 			WorkDayID:  workDayID,
 			EmployeeID: employeeID,
 			StartTime:  startTime,

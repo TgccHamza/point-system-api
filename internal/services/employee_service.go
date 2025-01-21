@@ -16,6 +16,7 @@ type EmployeeService interface {
 	GetEmployeesByCompanyID(ctx context.Context, companyID uint) ([]*models.Employee, error)
 	UpdateEmployee(ctx context.Context, employee models.Employee) (bool, error)
 	DeleteEmployee(ctx context.Context, id uint) (bool, error)
+	FetchEmployees(ctx context.Context) ([]*models.Employee, error)
 }
 
 // employeeService implements the EmployeeService interface.
@@ -38,19 +39,6 @@ func (s *employeeService) CreateEmployee(ctx context.Context, employee models.Em
 	}
 	if employee.CompanyID == 0 {
 		return 0, errors.New("company ID is required")
-	}
-
-	// Validate that the start and end hours are provided
-	if employee.StartHour.IsZero() {
-		return 0, errors.New("start hour is required")
-	}
-	if employee.EndHour.IsZero() {
-		return 0, errors.New("end hour is required")
-	}
-
-	// Ensure the end hour is after the start hour
-	if !employee.EndHour.After(employee.StartHour) {
-		return 0, errors.New("end hour must be after start hour")
 	}
 
 	// Create the employee in the database
@@ -87,19 +75,6 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employee models.Em
 		return false, errors.New("employee ID is required")
 	}
 
-	// Validate that the start and end hours are provided
-	if employee.StartHour.IsZero() {
-		return false, errors.New("start hour is required")
-	}
-	if employee.EndHour.IsZero() {
-		return false, errors.New("end hour is required")
-	}
-
-	// Ensure the end hour is after the start hour
-	if !employee.EndHour.After(employee.StartHour) {
-		return false, errors.New("end hour must be after start hour")
-	}
-
 	// Update the employee in the database
 	err := s.employeeRepo.UpdateEmployee(ctx, &employee)
 	if err != nil {
@@ -123,4 +98,13 @@ func (s *employeeService) DeleteEmployee(ctx context.Context, id uint) (bool, er
 	}
 
 	return true, nil
+}
+
+// FetchEmployees retrieves all employees.
+func (s *employeeService) FetchEmployees(ctx context.Context) ([]*models.Employee, error) {
+	employees, err := s.employeeRepo.FetchEmployees(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch employees: %w", err)
+	}
+	return employees, nil
 }

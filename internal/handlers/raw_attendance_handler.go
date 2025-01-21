@@ -24,13 +24,43 @@ func NewRawAttendanceHandler(rawAttendanceService services.RawAttendanceService)
 
 // CreateRawAttendance handles the creation of a new raw attendance record.
 func (h *RawAttendanceHandler) CreateRawAttendance(c *gin.Context) {
-	var rawAttendance models.RawAttendance
+	var rawAttendance struct {
+		models.RawAttendance
+		UserID    string `json:"userID"`
+		WorkDayID string `json:"workDayID"`
+		Punch     string `json:"punch"`
+		Status    string
+	}
+
 	if err := c.ShouldBindJSON(&rawAttendance); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload " + err.Error()})
 		return
 	}
 
-	if err := h.rawAttendanceService.CreateRawAttendance(c.Request.Context(), &rawAttendance); err != nil {
+	UserID, err := strconv.Atoi(rawAttendance.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UserID"})
+		return
+	}
+
+	WorkDayID, err := strconv.Atoi(rawAttendance.WorkDayID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid WorkDayID"})
+		return
+	}
+
+	Punch, err := strconv.Atoi(rawAttendance.Punch)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Punch"})
+		return
+	}
+
+	rawAttendance.RawAttendance.Punch = uint(Punch)
+	rawAttendance.RawAttendance.UserID = uint(UserID)
+	rawAttendance.RawAttendance.WorkDayID = uint(WorkDayID)
+	rawAttendance.RawAttendance.Status = 1
+
+	if err := h.rawAttendanceService.CreateRawAttendance(c.Request.Context(), &rawAttendance.RawAttendance); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
