@@ -1,25 +1,29 @@
+// internal/handlers/device_handler.go
 package handlers
 
 import (
 	"net/http"
 	"strconv"
 
+	"github.com/gin-gonic/gin"
+
 	"point-system-api/internal/models"
 	"point-system-api/internal/services"
-
-	"github.com/gin-gonic/gin"
 )
 
+// DeviceHandler handles HTTP requests for device-related operations.
 type DeviceHandler struct {
-	deviceService *services.DeviceService
+	deviceService services.DeviceService
 }
 
-// NewDeviceHandler creates a new instance of DeviceHandler
-func NewDeviceHandler(deviceService *services.DeviceService) *DeviceHandler {
-	return &DeviceHandler{deviceService: deviceService}
+// NewDeviceHandler creates a new instance of DeviceHandler.
+func NewDeviceHandler(deviceService services.DeviceService) *DeviceHandler {
+	return &DeviceHandler{
+		deviceService: deviceService,
+	}
 }
 
-// GetAllDevices handles retrieving all devices with optional filters
+// GetAllDevices retrieves all devices with optional filters.
 func (h *DeviceHandler) GetAllDevices(c *gin.Context) {
 	// Extract filters from query parameters
 	filters := map[string]interface{}{}
@@ -40,7 +44,7 @@ func (h *DeviceHandler) GetAllDevices(c *gin.Context) {
 	}
 
 	// Retrieve devices from the service
-	devices, err := h.deviceService.GetDevices(filters)
+	devices, err := h.deviceService.GetAllDevices(c.Request.Context(), filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve devices"})
 		return
@@ -49,7 +53,7 @@ func (h *DeviceHandler) GetAllDevices(c *gin.Context) {
 	c.JSON(http.StatusOK, devices)
 }
 
-// GetDeviceByID handles retrieving a single device by its ID
+// GetDeviceByID retrieves a single device by its ID.
 func (h *DeviceHandler) GetDeviceByID(c *gin.Context) {
 	id := c.Param("id")
 	deviceID, err := strconv.Atoi(id)
@@ -58,7 +62,7 @@ func (h *DeviceHandler) GetDeviceByID(c *gin.Context) {
 		return
 	}
 
-	device, err := h.deviceService.GetDeviceByID(uint(deviceID))
+	device, err := h.deviceService.GetDeviceByID(c.Request.Context(), uint(deviceID))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Device not found"})
 		return
@@ -67,15 +71,16 @@ func (h *DeviceHandler) GetDeviceByID(c *gin.Context) {
 	c.JSON(http.StatusOK, device)
 }
 
-// CreateDevice handles creating a new device
+// CreateDevice handles creating a new device.
 func (h *DeviceHandler) CreateDevice(c *gin.Context) {
-	var device models.DeviceModel
+	var device models.Device
 	if err := c.ShouldBindJSON(&device); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	err := h.deviceService.CreateDevice(&device)
+	// Create the device using the service
+	err := h.deviceService.CreateDevice(c.Request.Context(), &device)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create device"})
 		return
@@ -84,7 +89,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	c.JSON(http.StatusCreated, device)
 }
 
-// UpdateDevice handles updating an existing device
+// UpdateDevice handles updating an existing device.
 func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 	id := c.Param("id")
 	deviceID, err := strconv.Atoi(id)
@@ -93,14 +98,15 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 		return
 	}
 
-	var device models.DeviceModel
+	var device models.Device
 	if err := c.ShouldBindJSON(&device); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 	device.ID = uint(deviceID)
 
-	err = h.deviceService.UpdateDevice(&device)
+	// Update the device using the service
+	err = h.deviceService.UpdateDevice(c.Request.Context(), &device)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update device"})
 		return
@@ -109,7 +115,7 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Device updated successfully"})
 }
 
-// DeleteDevice handles deleting a device by its ID
+// DeleteDevice handles deleting a device by its ID.
 func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 	id := c.Param("id")
 	deviceID, err := strconv.Atoi(id)
@@ -118,7 +124,8 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 		return
 	}
 
-	err = h.deviceService.DeleteDevice(uint(deviceID))
+	// Delete the device using the service
+	err = h.deviceService.DeleteDevice(c.Request.Context(), uint(deviceID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete device"})
 		return

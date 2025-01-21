@@ -21,5 +21,5 @@ func DecodeTime(t uint32) time.Time {
 
 	year := t + 2000
 
-	return time.Date(int(year), time.Month(month), int(day), int(hour), int(minute), int(second), 0, time.UTC)
+	return time.Date(int(year), time.Month(month), int(day), int(hour)-1, int(minute), int(second), 0, time.UTC)
 }

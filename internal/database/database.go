@@ -157,6 +157,8 @@ func MigrateDB() error {
 		&models.WorkDay{},
 		&models.RawAttendance{},
 		&models.EmployeeWorkDay{},
+		&models.AttendanceLog{},
+		&models.Device{},
 	)
 	if err != nil {
 		log.Printf("Database migration failed: %v", err)

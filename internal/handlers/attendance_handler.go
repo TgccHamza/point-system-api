@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -9,11 +10,11 @@ import (
 )
 
 type AttendanceHandler struct {
-	attendanceService *services.AttendanceService
+	attendanceService services.AttendanceService
 }
 
 // NewAttendanceHandler creates a new instance of AttendanceHandler
-func NewAttendanceHandler(attendanceService *services.AttendanceService) *AttendanceHandler {
+func NewAttendanceHandler(attendanceService services.AttendanceService) *AttendanceHandler {
 	return &AttendanceHandler{attendanceService: attendanceService}
 }
 
@@ -47,7 +48,14 @@ func (h *AttendanceHandler) CreateAttendanceLog(c *gin.Context) {
 func (h *AttendanceHandler) GetAttendanceLogByID(c *gin.Context) {
 	id := c.Param("id")
 
-	attendanceLog, err := h.attendanceService.GetAttendanceLogByID(c.Request.Context(), id)
+	// Convert id from string to uint
+	parsedID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
+
+	attendanceLog, err := h.attendanceService.GetAttendanceByID(c.Request.Context(), uint(parsedID))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Attendance log not found"})
 		return
@@ -79,8 +87,14 @@ func (h *AttendanceHandler) GetAllAttendanceLogs(c *gin.Context) {
 // DeleteAttendanceLog deletes an attendance log by its ID
 func (h *AttendanceHandler) DeleteAttendanceLog(c *gin.Context) {
 	id := c.Param("id")
+	// Convert id from string to uint
+	parsedID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID format"})
+		return
+	}
 
-	err := h.attendanceService.DeleteAttendanceLog(c.Request.Context(), id)
+	err = h.attendanceService.DeleteAttendanceLog(c.Request.Context(), uint(parsedID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete attendance log"})
 		return

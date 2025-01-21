@@ -26,6 +26,7 @@ type Server struct {
 	rawAttendanceService   services.RawAttendanceService
 	employeeWorkDayService services.EmployeeWorkDayService
 	attendanceService      services.AttendanceService
+	deviceService          services.DeviceService
 }
 
 // NewServer creates a new instance of the Server.
@@ -43,6 +44,8 @@ func NewServer() *Server {
 	workDayRepo := repositories.NewWorkDayRepository(db.GetDB())
 	rawAttendanceRepo := repositories.NewRawAttendanceRepository(db.GetDB())
 	employeeWorkDayRepo := repositories.NewEmployeeWorkDayRepository(db.GetDB())
+	deviceRepo := repositories.NewDeviceRepository(db.GetDB())
+	attendanceRepo := repositories.NewAttendanceRepository(db.GetDB())
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
@@ -51,7 +54,8 @@ func NewServer() *Server {
 	workDayService := services.NewWorkDayService(workDayRepo)
 	rawAttendanceService := services.NewRawAttendanceService(rawAttendanceRepo)
 	employeeWorkDayService := services.NewEmployeeWorkDayService(workDayRepo, rawAttendanceRepo, employeeWorkDayRepo)
-	attendanceService := services.NewAttendanceService(db.GetDB())
+	attendanceService := services.NewAttendanceService(deviceRepo, attendanceRepo)
+	deviceService := services.NewDeviceService(deviceRepo)
 
 	// Create the HTTP server
 	httpServer := &http.Server{
@@ -73,6 +77,7 @@ func NewServer() *Server {
 		rawAttendanceService:   rawAttendanceService,
 		employeeWorkDayService: employeeWorkDayService,
 		attendanceService:      attendanceService,
+		deviceService:          deviceService,
 	}
 }
 

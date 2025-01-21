@@ -80,8 +80,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 
 	attendanceHandler := handlers.NewAttendanceHandler(s.attendanceService)
-	r.POST("/process-hex", attendanceHandler.ProcessHexData)
-	deviceHandler := handlers.NewDeviceHandler(s)
+	r.POST("/process-hex", attendanceHandler.CreateAttendanceLog)
+	r.GET("/attendance-logs", attendanceHandler.GetAllAttendanceLogs)
+	r.GET("/attendance-logs/:id", attendanceHandler.GetAttendanceLogByID)
+	deviceHandler := handlers.NewDeviceHandler(s.deviceService)
 	RegisterDeviceRoutes(r, deviceHandler)
 	s.httpServer.Handler = r
 	return r
