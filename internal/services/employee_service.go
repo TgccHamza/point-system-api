@@ -7,17 +7,18 @@ import (
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"
+	"point-system-api/internal/types"
 	"point-system-api/pkg/utils"
 )
 
 // EmployeeService defines the interface for employee-related operations.
 type EmployeeService interface {
-	CreateEmployee(ctx context.Context, employee models.Employee, user models.User) (uint, error)
-	GetEmployeeByID(ctx context.Context, id uint) (*models.Employee, error)
+	CreateEmployee(ctx context.Context, employee models.Employee, user models.User) (*models.Employee, error)
+	GetEmployeeByID(ctx context.Context, id uint) (*types.EmployeeWithUser, error)
 	GetEmployeesByCompanyID(ctx context.Context, companyID uint) ([]*models.Employee, error)
 	UpdateEmployee(ctx context.Context, employee models.Employee, userUpdates *models.User) (bool, error)
 	DeleteEmployee(ctx context.Context, id uint) (bool, error)
-	FetchEmployees(ctx context.Context, page, limit int, filters map[string]interface{}) ([]*models.Employee, int64, error)
+	FetchEmployees(ctx context.Context, page, limit int, filters map[string]interface{}, search string) ([]*types.EmployeeWithUser, int64, error)
 }
 
 // employeeService implements the EmployeeService interface.
@@ -35,10 +36,10 @@ func NewEmployeeService(employeeRepo repositories.EmployeeRepository, userServic
 }
 
 // CreateEmployee creates a new employee and a corresponding user.
-func (s *employeeService) CreateEmployee(ctx context.Context, employee models.Employee, user models.User) (uint, error) {
+func (s *employeeService) CreateEmployee(ctx context.Context, employee models.Employee, user models.User) (*models.Employee, error) {
 	// Validate that the required fields are provided
 	if user.FirstName == "" || user.LastName == "" || user.Username == "" || user.Password == "" {
-		return 0, errors.New("first name, last name, username, and password are required")
+		return nil, errors.New("first name, last name, username, and password are required")
 	}
 
 	// Set the default role for the user
@@ -47,7 +48,7 @@ func (s *employeeService) CreateEmployee(ctx context.Context, employee models.Em
 	// Create the user first
 	userID, err := s.userService.CreateUser(ctx, user)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create user: %w", err)
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	// Set the UserID for the employee
@@ -58,15 +59,15 @@ func (s *employeeService) CreateEmployee(ctx context.Context, employee models.Em
 	if err != nil {
 		// Rollback: Delete the user if employee creation fails
 		_, _ = s.userService.DeleteUser(ctx, userID)
-		return 0, fmt.Errorf("failed to create employee: %w", err)
+		return nil, fmt.Errorf("failed to create employee: %w", err)
 	}
 
-	return employee.ID, nil
+	return &employee, nil
 }
 
 // GetEmployeeByID retrieves an employee by their ID.
-func (s *employeeService) GetEmployeeByID(ctx context.Context, id uint) (*models.Employee, error) {
-	employee, err := s.employeeRepo.GetEmployeeByID(ctx, id)
+func (s *employeeService) GetEmployeeByID(ctx context.Context, id uint) (*types.EmployeeWithUser, error) {
+	employee, err := s.employeeRepo.GetEmployeeByIDWithUser(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve employee by ID: %w", err)
 	}
@@ -183,7 +184,7 @@ func (s *employeeService) DeleteEmployee(ctx context.Context, id uint) (bool, er
 }
 
 // FetchEmployees retrieves all employees with pagination, filtering, and search.
-func (s *employeeService) FetchEmployees(ctx context.Context, page, limit int, filters map[string]interface{}) ([]*models.Employee, int64, error) {
+func (s *employeeService) FetchEmployees(ctx context.Context, page, limit int, filters map[string]interface{}, search string) ([]*types.EmployeeWithUser, int64, error) {
 	// Validate pagination parameters
 	if page < 1 {
 		page = 1
@@ -193,7 +194,7 @@ func (s *employeeService) FetchEmployees(ctx context.Context, page, limit int, f
 	}
 
 	// Call the repository to get paginated and filtered results
-	employees, total, err := s.employeeRepo.ListEmployeesWithFilters(ctx, page, limit, filters)
+	employees, total, err := s.employeeRepo.ListEmployeesWithFilters(ctx, limit, page, filters, search)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to fetch employees: %w", err)
 	}

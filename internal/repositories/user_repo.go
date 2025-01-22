@@ -107,6 +107,7 @@ func (r *userRepository) UpdateUser(ctx context.Context, user models.User) (bool
 // DeleteUser deletes a user by their ID.
 func (r *userRepository) DeleteUser(ctx context.Context, id uint) (bool, error) {
 	if err := r.db.WithContext(ctx).Delete(&models.User{}, id).Error; err != nil {
+
 		return false, fmt.Errorf("failed to delete user: %w", err)
 	}
 	return true, nil

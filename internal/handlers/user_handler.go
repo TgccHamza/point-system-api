@@ -37,8 +37,14 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
+	user_res, err := h.userService.GetUserByID(c.Request.Context(), (userID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	manager.broadcast <- []byte("CREATE_USER")
-	c.JSON(http.StatusCreated, gin.H{"id": userID, "message": "User created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"data": user_res, "message": "User created successfully"})
 }
 
 // GetUserByID retrieves a user by their ID.
@@ -145,7 +151,14 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	manager.broadcast <- []byte("UPDATE_USER")
-	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+
+	user_res, err := h.userService.GetUserByID(c.Request.Context(), (user.ID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": user_res, "message": "User updated successfully"})
 }
 
 // DeleteUser handles deleting a user by their ID.
@@ -167,7 +180,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	manager.broadcast <- []byte("DELETE_USER")
-	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully", "id": userID})
 }
 
 // AuthenticateUser handles user authentication.

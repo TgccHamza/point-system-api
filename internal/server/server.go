@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"point-system-api/internal/database"
+	"point-system-api/internal/handlers"
 	"point-system-api/internal/repositories"
 	"point-system-api/internal/services"
 )
@@ -31,6 +32,7 @@ type Server struct {
 
 // NewServer creates a new instance of the Server.
 func NewServer() *Server {
+	handlers.StartManager()
 	// Load configuration
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 
@@ -50,7 +52,7 @@ func NewServer() *Server {
 	// Initialize services
 	userService := services.NewUserService(userRepo)
 	companyService := services.NewCompanyService(companyRepo)
-	employeeService := services.NewEmployeeService(employeeRepo)
+	employeeService := services.NewEmployeeService(employeeRepo, userService)
 	workDayService := services.NewWorkDayService(workDayRepo)
 	rawAttendanceService := services.NewRawAttendanceService(rawAttendanceRepo)
 	employeeWorkDayService := services.NewEmployeeWorkDayService(workDayRepo, rawAttendanceRepo, employeeWorkDayRepo)

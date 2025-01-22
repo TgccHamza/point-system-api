@@ -37,7 +37,14 @@ func (h *CompanyHandler) CreateCompany(c *gin.Context) {
 	}
 
 	manager.broadcast <- []byte("CREATE_COMPANY")
-	c.JSON(http.StatusCreated, gin.H{"id": companyID, "message": "Company created successfully"})
+
+	company_res, err := h.companyService.GetCompanyByID(c.Request.Context(), companyID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"id": companyID, "data": company_res, "message": "Company created successfully"})
 }
 
 // GetCompanyByID retrieves a company by its ID.
@@ -122,8 +129,14 @@ func (h *CompanyHandler) UpdateCompany(c *gin.Context) {
 		return
 	}
 
+	company_res, err := h.companyService.GetCompanyByID(c.Request.Context(), company.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	manager.broadcast <- []byte("UPDATE_COMPANY")
-	c.JSON(http.StatusOK, gin.H{"message": "Company updated successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Company updated successfully", "data": company_res})
 }
 
 // DeleteCompany handles deleting a company by its ID.

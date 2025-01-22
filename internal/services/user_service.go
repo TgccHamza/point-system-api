@@ -81,17 +81,25 @@ func (s *userService) GetUserByUsername(ctx context.Context, username string) (*
 
 // UpdateUser updates an existing user in the database.
 func (s *userService) UpdateUser(ctx context.Context, user models.User) (bool, error) {
+	existingUser, err := s.userRepo.GetUserByID(ctx, user.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to check existing user: %w", err)
+	}
+	existingUser.Username = user.Username
+	existingUser.FirstName = user.FirstName
+	existingUser.LastName = user.LastName
+	existingUser.Role = user.Role
 	// Hash the user's password if it's being updated
 	if user.Password != "" {
 		hashedPassword, err := utils.HashPassword(user.Password)
 		if err != nil {
 			return false, fmt.Errorf("failed to hash password: %w", err)
 		}
-		user.Password = hashedPassword
+		existingUser.Password = hashedPassword
 	}
 
 	// Update the user in the database
-	success, err := s.userRepo.UpdateUser(ctx, user)
+	success, err := s.userRepo.UpdateUser(ctx, *existingUser)
 	if err != nil {
 		return false, fmt.Errorf("failed to update user: %w", err)
 	}

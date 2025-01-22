@@ -91,8 +91,13 @@ func (s *companyService) UpdateCompany(ctx context.Context, company models.Compa
 		return false, errors.New("company ID is required")
 	}
 
+	companyDb, err := s.companyRepo.GetCompanyByID(ctx, company.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to update company: %w", err)
+	}
+	companyDb.CompanyName = company.CompanyName
 	// Update the company in the database
-	success, err := s.companyRepo.UpdateCompany(ctx, company)
+	success, err := s.companyRepo.UpdateCompany(ctx, *companyDb)
 	if err != nil {
 		return false, fmt.Errorf("failed to update company: %w", err)
 	}

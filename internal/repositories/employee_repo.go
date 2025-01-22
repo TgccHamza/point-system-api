@@ -8,17 +8,19 @@ import (
 	"gorm.io/gorm"
 
 	"point-system-api/internal/models"
+	"point-system-api/internal/types"
 )
 
 // EmployeeRepository defines the interface for employee-related database operations.
 type EmployeeRepository interface {
 	CreateEmployee(ctx context.Context, employee *models.Employee) error
+	GetEmployeeByIDWithUser(ctx context.Context, id uint) (*types.EmployeeWithUser, error)
 	GetEmployeeByID(ctx context.Context, id uint) (*models.Employee, error)
 	GetEmployeesByCompanyID(ctx context.Context, companyID uint) ([]*models.Employee, error)
 	UpdateEmployee(ctx context.Context, employee *models.Employee) error
 	DeleteEmployee(ctx context.Context, id uint) error
 	FetchEmployees(ctx context.Context) ([]*models.Employee, error)
-	ListEmployeesWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]*models.Employee, int64, error) // New method
+	ListEmployeesWithFilters(ctx context.Context, limit, page int, filters map[string]interface{}, search string) ([]*types.EmployeeWithUser, int64, error) // New method
 }
 
 // employeeRepository implements the EmployeeRepository interface.
@@ -61,6 +63,35 @@ func (r *employeeRepository) GetEmployeeByID(ctx context.Context, id uint) (*mod
 		return nil, fmt.Errorf("failed to retrieve employee by ID: %w", err)
 	}
 	return &employee, nil
+}
+
+// GetEmployeeByID retrieves an employee by their ID.
+func (r *employeeRepository) GetEmployeeByIDWithUser(ctx context.Context, id uint) (*types.EmployeeWithUser, error) {
+	var employeeWithUser types.EmployeeWithUser
+
+	// Use raw SQL to join Employee and User tables
+	query := `
+		SELECT 
+			e.id, e.user_id, e.registration_number, e.qualification, e.company_id, 
+			e.start_hour, e.end_hour, e.created_at, e.updated_at,
+			u.id AS user_id, u.first_name, u.last_name, u.username, u.role
+		FROM 
+			employees e
+		JOIN 
+			users u ON e.user_id = u.id
+		WHERE 
+			e.id = ? && e.deleted_at is null
+	`
+
+	// Execute the query
+	if err := r.db.WithContext(ctx).Raw(query, id).Scan(&employeeWithUser).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // No employee found
+		}
+		return nil, fmt.Errorf("failed to retrieve employee by ID: %w", err)
+	}
+
+	return &employeeWithUser, nil
 }
 
 // GetEmployeesByCompanyID retrieves all employees for a specific company.
@@ -111,36 +142,53 @@ func (r *employeeRepository) FetchEmployees(ctx context.Context) ([]*models.Empl
 	return employees, nil
 }
 
-// ListEmployeesWithFilters retrieves employees with pagination, filtering, and search.
-func (r *employeeRepository) ListEmployeesWithFilters(ctx context.Context, page, limit int, filters map[string]interface{}) ([]*models.Employee, int64, error) {
+func (r *employeeRepository) ListEmployeesWithFilters(ctx context.Context, limit, page int, filters map[string]interface{}, search string) ([]*types.EmployeeWithUser, int64, error) {
+	var employeesWithUsers []*types.EmployeeWithUser
+	var totalCount int64
 	offset := (page - 1) * limit
 
-	// Build the query
-	query := r.db.Model(&models.Employee{})
+	// Base query
+	query := r.db.WithContext(ctx).Table("employees e").
+		Select(`
+			e.id, e.user_id, e.registration_number, e.qualification, e.company_id, 
+			e.start_hour, e.end_hour, e.created_at, e.updated_at,
+			u.id AS user_id, u.first_name, u.last_name, u.username, u.role
+		`).
+		Joins("JOIN users u ON e.user_id = u.id")
 
-	// Apply search filter
-	if search, ok := filters["search"]; ok {
-		query = query.Where("registration_number LIKE ? OR qualification LIKE ?", "%"+search.(string)+"%", "%"+search.(string)+"%")
-	}
-
-	// Apply other filters
+	// Apply filters
 	for key, value := range filters {
-		if key != "search" {
-			query = query.Where(key+" = ?", value)
+		if key == "search" {
+			continue
 		}
+		query = query.Where(fmt.Sprintf("e.%s = ?", key), value)
 	}
 
-	// Count total records
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
+	query = query.Where("e.deleted_at is null")
+
+	// Apply search (if provided)
+	if search != "" {
+		query = query.Where(`
+			e.registration_number LIKE ? OR 
+			e.qualification LIKE ? OR 
+			u.first_name LIKE ? OR 
+			u.last_name LIKE ? OR 
+			u.username LIKE ?
+		`, "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%", "%"+search+"%")
+	}
+
+	// Count total records (for pagination)
+	if err := query.Count(&totalCount).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to count employees: %w", err)
 	}
 
 	// Apply pagination
-	var employees []*models.Employee
-	if err := query.Offset(offset).Limit(limit).Find(&employees).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to list employees: %w", err)
+	query = query.Offset(offset).Limit(limit)
+
+	// Execute the query
+	if err := query.Scan(&employeesWithUsers).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to fetch employees: %w", err)
 	}
 
-	return employees, total, nil
+	return employeesWithUsers, totalCount, nil
 }
