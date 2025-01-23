@@ -29,6 +29,10 @@ ENV MYSQL_DATABASE=blueprint
 ENV MYSQL_USER=melkey
 ENV MYSQL_PASSWORD=password1234
 
+
+# Initialize the MySQL data directory
+RUN ["mysqld", "--initialize-insecure", "--datadir=/var/lib/mysql"]
+
 # Expose MySQL and app ports
 EXPOSE 3306 8080
 

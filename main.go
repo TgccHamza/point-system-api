@@ -1,80 +1,62 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
-	"encoding/hex"
-	"fmt"
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"point-system-api/config"
+	"point-system-api/internal/database"
+	"point-system-api/internal/server"
 )
 
-// decodeTime decodes a timestamp retrieved from the timeclock
-func decodeTime(t uint32) time.Time {
-	second := t % 60
-	t = t / 60
-
-	minute := t % 60
-	t = t / 60
-
-	hour := t % 24
-	t = t / 24
-
-	day := t%31 + 1
-	t = t / 31
-
-	month := t%12 + 1
-	t = t / 12
-
-	year := t + 2000
-
-	return time.Date(int(year), time.Month(month), int(day), int(hour), int(minute), int(second), 0, time.UTC)
-}
-
 func main() {
-	// Convert the hex string to bytes
-	hexCode := "2F00323030000000000000000000000000000000000000000000011EBAFE2F050000000000000000"
-	byteData, err := hex.DecodeString(hexCode)
-	if err != nil {
-		panic(err)
+	// Load configuration
+	cfg := config.LoadConfig()
+
+	// Initialize the database
+	db := database.New()
+	defer db.Close()
+
+	// Run database migrations
+	if err := database.MigrateDB(); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	// Define the struct format
-	type Record struct {
-		UID      uint16
-		UserID   [24]byte
-		Status   uint8
-		Timestamp [4]byte
-		Punch    uint8
-		Space    [8]byte
+	// Create a new server instance
+	server := server.NewServer()
+
+	// Create a channel to listen for interrupt signals
+	done := make(chan bool, 1)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start the server in a goroutine
+	go func() {
+		if err := server.Start(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	log.Printf("Server is running on port %d", cfg.ServerPort)
+
+	// Wait for an interrupt signal
+	<-quit
+	log.Println("Server is shutting down...")
+
+	// Create a context with a timeout for graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Attempt to gracefully shut down the server
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	// Unpack the byte data into the struct
-	var record Record
-	buf := bytes.NewReader(byteData)
-	err = binary.Read(buf, binary.LittleEndian, &record)
-	if err != nil {
-		panic(err)
-	}
-
-	// Clean the UserID by removing null bytes and converting to a string
-	userIDClean := string(bytes.TrimRight(record.UserID[:], "\x00"))
-
-	// Convert UserID to an integer
-	var userIDNumber int
-	_, err = fmt.Sscanf(userIDClean, "%d", &userIDNumber)
-	if err != nil {
-		panic(err)
-	}
-
-	// Decode the timestamp
-	timestamp := binary.LittleEndian.Uint32(record.Timestamp[:])
-	decodedTime := decodeTime(timestamp)
-
-	// Print the unpacked data
-	fmt.Println("UID:", record.UID)
-	fmt.Println("User ID (clean):", userIDClean)
-	fmt.Println("User ID (number):", userIDNumber)
-	fmt.Println("Status:", record.Status)
-	fmt.Println("Punch:", record.Punch)
-	fmt.Println("Timestamp:", decodedTime)
+	// Notify the main goroutine that shutdown is complete
+	close(done)
 }
