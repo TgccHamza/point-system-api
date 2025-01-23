@@ -31,7 +31,7 @@ ENV MYSQL_PASSWORD=password1234
 
 
 # Initialize the MySQL data directory
-RUN ["mysqld", "--initialize-insecure", "--datadir=/var/lib/mysql"]
+RUN ["mysqld", "--initialize", "--datadir=/var/lib/mysql"]
 
 # Expose MySQL and app ports
 EXPOSE 3306 8080

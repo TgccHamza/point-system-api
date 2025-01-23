@@ -59,8 +59,8 @@ func New() Service {
 		log.Fatal(err)
 	}
 	db.SetConnMaxLifetime(0)
-	db.SetMaxIdleConns(50)
-	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(100)
 
 	log.Printf("Initializing Gorm...")
 	gormDb, err := gorm.Open(mysql.New(mysql.Config{
