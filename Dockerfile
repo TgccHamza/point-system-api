@@ -34,7 +34,7 @@ ENV MYSQL_PASSWORD=password1234
 RUN ["mysqld", "--initialize-insecure", "--datadir=/var/lib/mysql"]
 
 # Expose MySQL and app ports
-EXPOSE 3306 8080
+EXPOSE 33060 8080
 
 # Copy the built Go application from the builder stage
 COPY --from=builder /app/main /main
