@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"point-system-api/internal/models"
 	"strconv"
 	"time"
@@ -38,11 +37,11 @@ type service struct {
 }
 
 var (
-	dbname     = os.Getenv("BLUEPRINT_DB_DATABASE")
-	password   = os.Getenv("BLUEPRINT_DB_PASSWORD")
-	username   = os.Getenv("BLUEPRINT_DB_USERNAME")
-	port       = os.Getenv("BLUEPRINT_DB_PORT")
-	host       = os.Getenv("BLUEPRINT_DB_HOST")
+	dbname     = "blueprint"
+	password   = "password1234"
+	username   = "melkey"
+	port       = 3306
+	host       = "localhost"
 	dbInstance *service
 )
 
