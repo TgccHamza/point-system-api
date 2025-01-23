@@ -10,6 +10,7 @@ import (
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"
+	"point-system-api/internal/types"
 	"point-system-api/pkg/utils"
 )
 
@@ -22,7 +23,7 @@ type AttendanceService interface {
 	GetAttendanceByID(ctx context.Context, id uint) (*models.AttendanceLog, error)
 
 	// GetAllAttendanceLogs retrieves all attendance logs with optional filters.
-	GetAllAttendanceLogs(ctx context.Context, filters map[string]interface{}) ([]models.AttendanceLog, error)
+	GetAllAttendanceLogs(ctx context.Context, page, limit int, filters map[string]interface{}, search string) ([]types.AttendanceLogResponse, int64, error)
 
 	// UpdateAttendanceLog updates an existing attendance log.
 	UpdateAttendanceLog(ctx context.Context, attendanceLog *models.AttendanceLog) error
@@ -139,20 +140,22 @@ func (s *attendanceService) GetAttendanceByID(ctx context.Context, id uint) (*mo
 	return attendanceLog, nil
 }
 
-// GetAllAttendanceLogs retrieves all attendance logs with optional filters.
-func (s *attendanceService) GetAllAttendanceLogs(ctx context.Context, filters map[string]interface{}) ([]models.AttendanceLog, error) {
-	// Retrieve all attendance logs from the database
-	attendanceLogs, err := s.attendanceRepo.GetAllAttendanceLogs(ctx, filters)
+func (s *attendanceService) GetAllAttendanceLogs(ctx context.Context, page, limit int, filters map[string]interface{}, search string) ([]types.AttendanceLogResponse, int64, error) {
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	// Call repository with filters
+	attendanceLogs, total, err := s.attendanceRepo.GetAllAttendanceLogsWithFilters(ctx, page, limit, filters, search)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve attendance logs: %w", err)
+		return nil, 0, fmt.Errorf("failed to retrieve attendance logs: %w", err)
 	}
 
-	// Return an empty slice if no attendance logs are found
-	if len(attendanceLogs) == 0 {
-		return []models.AttendanceLog{}, nil
-	}
-
-	return attendanceLogs, nil
+	return attendanceLogs, total, nil
 }
 
 // UpdateAttendanceLog updates an existing attendance log.

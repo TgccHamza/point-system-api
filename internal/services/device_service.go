@@ -13,7 +13,7 @@ import (
 type DeviceService interface {
 	CreateDevice(ctx context.Context, device *models.Device) error
 	GetDeviceByID(ctx context.Context, id uint) (*models.Device, error)
-	GetAllDevices(ctx context.Context, filters map[string]interface{}) ([]*models.Device, error)
+	GetAllDevices(ctx context.Context, page, limit int, filters map[string]interface{}, search string) ([]models.Device, int64, error)
 	UpdateDevice(ctx context.Context, device *models.Device) error
 	DeleteDevice(ctx context.Context, id uint) error
 }
@@ -56,13 +56,23 @@ func (s *deviceService) GetDeviceByID(ctx context.Context, id uint) (*models.Dev
 	return device, nil
 }
 
-// GetAllDevices retrieves all devices with optional filters
-func (s *deviceService) GetAllDevices(ctx context.Context, filters map[string]interface{}) ([]*models.Device, error) {
-	devices, err := s.deviceRepo.FilterDevices(filters)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve devices: %w", err)
+// GetAllDevices retrieves all devices with pagination, filtering, and search.
+func (s *deviceService) GetAllDevices(ctx context.Context, page, limit int, filters map[string]interface{}, search string) ([]models.Device, int64, error) {
+	// Validate pagination parameters
+	if page < 1 {
+		page = 1
 	}
-	return devices, nil
+	if limit < 1 {
+		limit = 10
+	}
+
+	// Call the repository to get paginated and filtered results
+	devices, total, err := s.deviceRepo.ListDevicesWithFilters(ctx, page, limit, filters, search)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to fetch devices: %w", err)
+	}
+
+	return devices, total, nil
 }
 
 // UpdateDevice updates an existing device in the database

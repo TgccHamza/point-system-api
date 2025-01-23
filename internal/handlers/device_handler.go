@@ -23,10 +23,20 @@ func NewDeviceHandler(deviceService services.DeviceService) *DeviceHandler {
 	}
 }
 
-// GetAllDevices retrieves all devices with optional filters.
+// GetAllDevices retrieves all devices with optional filters, pagination, and search.
 func (h *DeviceHandler) GetAllDevices(c *gin.Context) {
-	// Extract filters from query parameters
+	// Extract query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
 	filters := map[string]interface{}{}
+
+	// Add search filter if provided
+	if search != "" {
+		filters["search"] = search
+	}
+
+	// Add other filters from query parameters
 	if serial := c.Query("serial_number"); serial != "" {
 		filters["serial_number"] = serial
 	}
@@ -44,13 +54,19 @@ func (h *DeviceHandler) GetAllDevices(c *gin.Context) {
 	}
 
 	// Retrieve devices from the service
-	devices, err := h.deviceService.GetAllDevices(c.Request.Context(), filters)
+	devices, total, err := h.deviceService.GetAllDevices(c.Request.Context(), page, limit, filters, search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve devices"})
 		return
 	}
 
-	c.JSON(http.StatusOK, devices)
+	// Return the response with pagination metadata
+	c.JSON(http.StatusOK, gin.H{
+		"data":  devices,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 // GetDeviceByID retrieves a single device by its ID.

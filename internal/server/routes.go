@@ -83,7 +83,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	attendanceHandler := handlers.NewAttendanceHandler(s.attendanceService)
 	r.POST("/process-hex", attendanceHandler.CreateAttendanceLog)
-	r.GET("/attendance-logs", attendanceHandler.GetAllAttendanceLogs)
+	r.GET("/attendance-logs", attendanceHandler.ListAttendanceLogs)
 	r.GET("/attendance-logs/:id", attendanceHandler.GetAttendanceLogByID)
 	deviceHandler := handlers.NewDeviceHandler(s.deviceService)
 	RegisterDeviceRoutes(r, deviceHandler)
@@ -101,9 +101,9 @@ func (s *Server) HelloWorldHandler(c *gin.Context) {
 func RegisterDeviceRoutes(router *gin.Engine, deviceHandler *handlers.DeviceHandler) {
 	devices := router.Group("/devices")
 	{
-		devices.GET("/", deviceHandler.GetAllDevices)      // Retrieve all devices (with filters)
+		devices.GET("", deviceHandler.GetAllDevices)       // Retrieve all devices (with filters)
 		devices.GET("/:id", deviceHandler.GetDeviceByID)   // Retrieve a single device
-		devices.POST("/", deviceHandler.CreateDevice)      // Create a new device
+		devices.POST("", deviceHandler.CreateDevice)       // Create a new device
 		devices.PUT("/:id", deviceHandler.UpdateDevice)    // Update a device
 		devices.DELETE("/:id", deviceHandler.DeleteDevice) // Delete a device
 	}

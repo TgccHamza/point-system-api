@@ -66,23 +66,57 @@ func (h *AttendanceHandler) GetAttendanceLogByID(c *gin.Context) {
 }
 
 // GetAllAttendanceLogs retrieves all attendance logs with optional filters
-func (h *AttendanceHandler) GetAllAttendanceLogs(c *gin.Context) {
-	// Extract filters from query parameters
+func (h *AttendanceHandler) ListAttendanceLogs(c *gin.Context) {
+	// Extract query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	search := c.Query("search")
+	startDate := c.Query("startDate")
+	endDate := c.Query("endDate")
+	punch := c.Query("punch")
 	filters := map[string]interface{}{}
+
+	// Add search filter if provided
+	if search != "" {
+		filters["search"] = search
+	}
+
+	if startDate != "" {
+		filters["start_date"] = startDate
+	}
+
+	if endDate != "" {
+		filters["end_date"] = endDate
+	}
+
+	if punch != "" {
+		filters["punch"] = punch
+	}
+
+	// Add filters from query parameters
 	if serial := c.Query("serial_number"); serial != "" {
 		filters["serial_number"] = serial
 	}
-	if userID := c.Query("user_id"); userID != "" {
-		filters["user_id"] = userID
+	if companyID := c.Query("company_id"); companyID != "" {
+		companyIDInt, err := strconv.Atoi(companyID)
+		if err == nil {
+			filters["company_id"] = companyIDInt
+		}
 	}
 
-	attendanceLogs, err := h.attendanceService.GetAllAttendanceLogs(c.Request.Context(), filters)
+	// Get attendance logs with filters and pagination
+	attendanceLogs, total, err := h.attendanceService.GetAllAttendanceLogs(c.Request.Context(), page, limit, filters, search)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve attendance logs"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": attendanceLogs})
+	c.JSON(http.StatusOK, gin.H{
+		"data":  attendanceLogs,
+		"total": total,
+		"page":  page,
+		"limit": limit,
+	})
 }
 
 // DeleteAttendanceLog deletes an attendance log by its ID
