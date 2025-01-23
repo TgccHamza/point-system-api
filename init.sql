@@ -1,0 +1,2 @@
+GRANT ALL PRIVILEGES ON blueprint.* TO 'melkey'@'%' IDENTIFIED BY 'password1234';
+FLUSH PRIVILEGES;

@@ -34,10 +34,12 @@ ENV MYSQL_PASSWORD=password1234
 RUN ["mysqld", "--initialize-insecure", "--datadir=/var/lib/mysql"]
 
 # Expose MySQL and app ports
-EXPOSE 33060 8080
+EXPOSE 3306 8080
 
 # Copy the built Go application from the builder stage
 COPY --from=builder /app/main /main
+# Add a custom SQL file for setting permissions and initializing data
+COPY init.sql /docker-entrypoint-initdb.d/
 
 # Command to start MySQL and your Go application
-CMD ["sh", "-c", "mysqld & sleep 10 && ./main"]
+CMD ["sh", "-c", "mysqld --bind-address=0.0.0.0 & sleep 10 && ./main"]
