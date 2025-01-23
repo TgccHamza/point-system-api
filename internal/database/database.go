@@ -41,7 +41,7 @@ var (
 	password   = "password1234"
 	username   = "melkey"
 	port       = "3306"
-	host       = "127.0.0.1"
+	host       = "localhost"
 	dbInstance *service
 )
 
