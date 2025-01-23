@@ -42,4 +42,4 @@ COPY --from=builder /app/main /main
 COPY init.sql /docker-entrypoint-initdb.d/
 
 # Command to start MySQL and your Go application
-CMD ["sh", "-c", "mysqld & sleep 10 && ./main"]
+CMD ["sh"]
