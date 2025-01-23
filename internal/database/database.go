@@ -40,7 +40,7 @@ var (
 	dbname     = "blueprint"
 	password   = "password1234"
 	username   = "melkey"
-	port       = 33060
+	port       = "33060"
 	host       = "localhost"
 	dbInstance *service
 )
