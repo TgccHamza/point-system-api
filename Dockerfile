@@ -20,26 +20,11 @@ COPY . .
 # Build the Go application
 RUN go build -o main .
 
-# Create the final image with MySQL and the Go application
-FROM mysql:8.0
-
-# Set MySQL environment variables
-ENV MYSQL_ROOT_PASSWORD=password4321
-ENV MYSQL_DATABASE=blueprint
-ENV MYSQL_USER=melkey
-ENV MYSQL_PASSWORD=password1234
-
-
-# Initialize the MySQL data directory
-RUN ["mysqld", "--initialize", "--datadir=/var/lib/mysql"]
-
 # Expose MySQL and app ports
-EXPOSE 3306 8080
+EXPOSE 8080
 
 # Copy the built Go application from the builder stage
 COPY --from=builder /app/main /main
-# Add a custom SQL file for setting permissions and initializing data
-COPY init.sql /docker-entrypoint-initdb.d/
 
 # Command to start MySQL and your Go application
-CMD ["sh"]
+CMD ["/main"]
