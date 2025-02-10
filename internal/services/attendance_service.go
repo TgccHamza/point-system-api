@@ -116,6 +116,60 @@ func (s *attendanceService) CreateAttendanceLog(ctx context.Context, serialNumbe
 		return nil, result
 	}
 
+	// Retrieve the last attendance log for the user
+	// Retrieve the current and previous attendance logs for the user
+	currentLog, previousLog, err := s.attendanceRepo.GetCurrentAndPreviousLogsByUserID(ctx, userIDNumber)
+	if err != nil {
+		// Handle error (e.g., log it)
+		fmt.Println("Error retrieving current and previous logs:", err)
+		return nil, err
+	}
+
+	fmt.Println("Current log:", currentLog)
+	fmt.Println("Previous log:", previousLog)
+
+	// Determine the system punch based on the current and previous logs
+	var systemPunch string
+	if previousLog == nil || previousLog.SystemPunch == "" {
+		// No previous log, set to IN
+		systemPunch = "IN"
+	} else {
+		// Check the last system punch
+		if previousLog.SystemPunch == "IN" {
+			// Get the first IN of the current day
+			firstInLog, err := s.attendanceRepo.GetFirstInLogOfDay(ctx, userIDNumber, previousLog.Timestamp)
+			if err != nil {
+				// Handle error (e.g., log it)
+				fmt.Println("Error retrieving first IN log of the day:", err)
+				return nil, err
+			}
+
+			// Calculate work hours
+			workHours := decodedTime.Sub(firstInLog.Timestamp).Hours()
+			if workHours <= 12 {
+				systemPunch = "OUT"
+			} else {
+				systemPunch = "IN"
+			}
+		} else if previousLog.SystemPunch == "OUT" {
+			systemPunch = "IN"
+		}
+	}
+
+	// Update the attendance log with the calculated system punch
+	attendanceLog.SystemPunch = systemPunch
+	currentLog.SystemPunch = systemPunch
+
+	// Update the attendance logs in the database
+	if err := s.attendanceRepo.UpdateAttendanceLog(ctx, currentLog); err != nil {
+		// Handle error (e.g., log it)
+		fmt.Println("Error updating attendance log:", err)
+		return nil, err
+	}
+
+	// Log the updated attendance log
+	fmt.Println("Updated attendance log:", currentLog)
+
 	return &attendanceLog, nil
 }
 

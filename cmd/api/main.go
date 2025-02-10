@@ -27,6 +27,10 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
+	if err := database.InitializeViewDB(); err != nil {
+		log.Fatalf("Failed to creating view in database: %v", err)
+	}
+
 	// Create a new server instance
 	server := server.NewServer()
 

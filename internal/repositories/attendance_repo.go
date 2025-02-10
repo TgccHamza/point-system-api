@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/types"
@@ -24,8 +25,18 @@ type AttendanceRepository interface {
 	// UpdateAttendanceLog updates an existing attendance log.
 	UpdateAttendanceLog(ctx context.Context, attendanceLog *models.AttendanceLog) error
 
+	GetCurrentAndPreviousLogsByUserID(ctx context.Context, userID int) (*models.AttendanceLog, *models.AttendanceLog, error)
+
+	// GetFirstInLogOfDay retrieves the first IN attendance log of the day for a user.
+
+	GetFirstInLogOfDay(ctx context.Context, userID int, date time.Time) (*models.AttendanceLog, error)
+
 	// DeleteAttendanceLog deletes an attendance log by its ID.
 	DeleteAttendanceLog(ctx context.Context, id uint) error
+
+	GetAttendanceLogsByUserAndTimeRange(ctx context.Context, userID int, start, end time.Time) ([]models.AttendanceLog, error)
+
+	GetTotalHourOutByUserAndTimeRange(ctx context.Context, userID uint, start, end time.Time) (float64, error)
 }
 
 type attendanceRepository struct {
@@ -138,4 +149,78 @@ func (r *attendanceRepository) GetAllAttendanceLogsWithFilters(ctx context.Conte
 	}
 
 	return attendanceLogs, total, nil
+}
+
+// GetCurrentAndPreviousLogsByUserID retrieves the current and previous attendance logs for a user.
+func (r *attendanceRepository) GetCurrentAndPreviousLogsByUserID(ctx context.Context, userID int) (*models.AttendanceLog, *models.AttendanceLog, error) {
+
+	var currentLog, previousLog models.AttendanceLog
+
+	// Retrieve the current log
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("timestamp DESC").First(&currentLog).Error
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Retrieve the previous log
+
+	err = r.db.WithContext(ctx).Where("user_id = ? AND id < ?", userID, currentLog.ID).Order("timestamp DESC").First(&previousLog).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, nil, err
+	}
+
+	return &currentLog, &previousLog, nil
+}
+
+// GetFirstInLogOfDay retrieves the first IN attendance log of the day for a user.
+func (r *attendanceRepository) GetFirstInLogOfDay(ctx context.Context, userID int, date time.Time) (*models.AttendanceLog, error) {
+	var attendanceLog models.AttendanceLog
+
+	err := r.db.WithContext(ctx).
+		Where("user_id = ? AND DATE(timestamp) = ? AND system_punch = ?", userID, date.Format("2006-01-02"), "IN").
+		Order("timestamp ASC").
+		First(&attendanceLog).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &attendanceLog, nil
+}
+
+func (r *attendanceRepository) GetAttendanceLogsByUserAndTimeRange(ctx context.Context, userID int, start, end time.Time) ([]models.AttendanceLog, error) {
+	var logs []models.AttendanceLog
+	if err := r.db.WithContext(ctx).
+		Where("user_id = ? AND timestamp BETWEEN ? AND ?", userID, start, end).
+		Find(&logs).Error; err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+// GetTotalHourOutByUserAndTimeRange uses window functions and TIMESTAMPDIFF (MySQL syntax)
+// to calculate total hours out in one query.
+func (r *attendanceRepository) GetTotalHourOutByUserAndTimeRange(ctx context.Context, userID uint, start, end time.Time) (float64, error) {
+	var totalSeconds float64
+
+	err := r.db.WithContext(ctx).Raw(`
+        WITH ordered_logs AS (
+            SELECT 
+                timestamp,
+                system_punch,
+                LAG(timestamp) OVER (PARTITION BY user_id ORDER BY timestamp) AS prev_timestamp,
+                LAG(system_punch) OVER (PARTITION BY user_id ORDER BY timestamp) AS prev_system_punch
+            FROM attendance_logs
+            WHERE user_id = ? AND timestamp BETWEEN ? AND ?
+        )
+        SELECT COALESCE(SUM(TIMESTAMPDIFF(SECOND, prev_timestamp, timestamp)),0) AS total_seconds
+        FROM ordered_logs
+        WHERE system_punch = 'IN' AND prev_system_punch = 'OUT'
+    `, userID, start, end).Scan(&totalSeconds).Error
+	if err != nil {
+		return 0, err
+	}
+	return totalSeconds / 3600, nil
 }

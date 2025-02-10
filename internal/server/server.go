@@ -17,17 +17,17 @@ import (
 
 // Server represents the HTTP server and its dependencies.
 type Server struct {
-	httpServer             *http.Server
-	port                   int
-	db                     database.Service
-	userService            services.UserService
-	companyService         services.CompanyService
-	employeeService        services.EmployeeService
-	workDayService         services.WorkDayService
-	rawAttendanceService   services.RawAttendanceService
-	employeeWorkDayService services.EmployeeWorkDayService
-	attendanceService      services.AttendanceService
-	deviceService          services.DeviceService
+	httpServer           *http.Server
+	port                 int
+	db                   database.Service
+	userService          services.UserService
+	companyService       services.CompanyService
+	employeeService      services.EmployeeService
+	workDayService       services.WorkDayService
+	attendanceService    services.AttendanceService
+	deviceService        services.DeviceService
+	rawAttendanceService services.RawAttendanceService
+	reportService        services.ReportService
 }
 
 // NewServer creates a new instance of the Server.
@@ -44,20 +44,19 @@ func NewServer() *Server {
 	companyRepo := repositories.NewCompanyRepository(db.GetDB())
 	employeeRepo := repositories.NewEmployeeRepository(db.GetDB())
 	workDayRepo := repositories.NewWorkDayRepository(db.GetDB())
-	rawAttendanceRepo := repositories.NewRawAttendanceRepository(db.GetDB())
-	employeeWorkDayRepo := repositories.NewEmployeeWorkDayRepository(db.GetDB())
 	deviceRepo := repositories.NewDeviceRepository(db.GetDB())
 	attendanceRepo := repositories.NewAttendanceRepository(db.GetDB())
+	rawAttendanceRepo := repositories.NewRawAttendanceRepo(db.GetDB())
 
 	// Initialize services
 	userService := services.NewUserService(userRepo)
 	companyService := services.NewCompanyService(companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo, userService)
-	workDayService := services.NewWorkDayService(workDayRepo)
-	rawAttendanceService := services.NewRawAttendanceService(rawAttendanceRepo)
-	employeeWorkDayService := services.NewEmployeeWorkDayService(workDayRepo, rawAttendanceRepo, employeeWorkDayRepo)
+	workDayService := services.NewWorkDayService(workDayRepo, rawAttendanceRepo, attendanceRepo)
 	attendanceService := services.NewAttendanceService(deviceRepo, attendanceRepo)
+	rawAttendanceService := services.NewRawAttendanceService(rawAttendanceRepo)
 	deviceService := services.NewDeviceService(deviceRepo)
+	reportService := services.NewReportService(db.GetDB())
 
 	// Create the HTTP server
 	httpServer := &http.Server{
@@ -69,17 +68,17 @@ func NewServer() *Server {
 	}
 
 	return &Server{
-		httpServer:             httpServer,
-		port:                   port,
-		db:                     db,
-		userService:            userService,
-		companyService:         companyService,
-		employeeService:        employeeService,
-		workDayService:         workDayService,
-		rawAttendanceService:   rawAttendanceService,
-		employeeWorkDayService: employeeWorkDayService,
-		attendanceService:      attendanceService,
-		deviceService:          deviceService,
+		httpServer:           httpServer,
+		port:                 port,
+		db:                   db,
+		userService:          userService,
+		companyService:       companyService,
+		employeeService:      employeeService,
+		workDayService:       workDayService,
+		attendanceService:    attendanceService,
+		deviceService:        deviceService,
+		rawAttendanceService: rawAttendanceService,
+		reportService:        reportService,
 	}
 }
 

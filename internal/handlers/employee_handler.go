@@ -205,7 +205,7 @@ func (h *EmployeeHandler) UpdateEmployee(c *gin.Context) {
 		CreatedAt:          employee.CreatedAt.String(),
 		UpdatedAt:          employee.UpdatedAt.String(),
 		FirstName:          userUpdates.FirstName,
-		LastName:           userUpdates.Username,
+		LastName:           userUpdates.LastName,
 		Username:           userUpdates.Username,
 		Role:               "employee",
 	}

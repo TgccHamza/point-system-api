@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 
 	"point-system-api/internal/models"
+	"point-system-api/internal/types"
 )
 
 // WorkDayRepository defines the interface for workday-related database operations.
@@ -17,6 +19,7 @@ type WorkDayRepository interface {
 	ListWorkDays(ctx context.Context) ([]*models.WorkDay, error)
 	UpdateWorkDay(ctx context.Context, workday *models.WorkDay) error
 	DeleteWorkDay(ctx context.Context, id uint) error
+	GetEmployeesWithAttendance(ctx context.Context, date time.Time) ([]types.EmployeeAttendance, error)
 }
 
 // workDayRepository implements the WorkDayRepository interface.
@@ -89,4 +92,43 @@ func (r *workDayRepository) DeleteWorkDay(ctx context.Context, id uint) error {
 	}
 
 	return nil
+}
+
+func (r *workDayRepository) GetEmployeesWithAttendance(ctx context.Context, date time.Time) ([]types.EmployeeAttendance, error) {
+	var employeeAttendances []types.EmployeeAttendance
+	query := `
+        SELECT 
+            e.id AS user_id, 
+            e.company_id, 
+            us.first_name, 
+            us.last_name, 
+			e.registration_number,
+            e.qualification, 
+            u.date, 
+            u.checkin, 
+            u.checkout 
+        FROM 
+            employees e
+        INNER JOIN
+            users us ON e.user_id = us.id
+        LEFT JOIN 
+            user_daily_checkin_checkout u ON e.registration_number = u.user_id 
+        WHERE 
+            (u.checkin IS NOT NULL OR u.checkout IS NOT NULL) AND (u.date = ? or u.date is null)
+    `
+	rows, err := r.db.Raw(query, date.Format("2006-01-02")).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var ea types.EmployeeAttendance
+		if err := rows.Scan(&ea.UserID, &ea.CompanyID, &ea.FirstName, &ea.LastName, &ea.RegisterNumber, &ea.Qualification, &ea.Date, &ea.Checkin, &ea.Checkout); err != nil {
+			return nil, err
+		}
+		employeeAttendances = append(employeeAttendances, ea)
+	}
+
+	return employeeAttendances, nil
 }

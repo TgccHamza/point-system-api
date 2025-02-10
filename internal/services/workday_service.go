@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"time"
 
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"
@@ -19,13 +21,17 @@ type WorkDayService interface {
 
 // workDayService implements the WorkDayService interface.
 type workDayService struct {
-	workDayRepo repositories.WorkDayRepository
+	workDayRepo       repositories.WorkDayRepository
+	rawAttendanceRepo repositories.RawAttendanceRepository
+	attendanceRepo    repositories.AttendanceRepository
 }
 
 // NewWorkDayService creates a new instance of WorkDayService.
-func NewWorkDayService(workDayRepo repositories.WorkDayRepository) WorkDayService {
+func NewWorkDayService(workDayRepo repositories.WorkDayRepository, rawAttendanceRepo repositories.RawAttendanceRepository, attendanceRepo repositories.AttendanceRepository) *workDayService {
 	return &workDayService{
-		workDayRepo: workDayRepo,
+		workDayRepo:       workDayRepo,
+		rawAttendanceRepo: rawAttendanceRepo,
+		attendanceRepo:    attendanceRepo,
 	}
 }
 
@@ -43,7 +49,113 @@ func (s *workDayService) CreateWorkDay(ctx context.Context, workday *models.Work
 		return errors.New("day type is required")
 	}
 
-	return s.workDayRepo.CreateWorkDay(ctx, workday)
+	// Extra validation: cannot create workday for the current day
+	currentDate := time.Now().Truncate(24 * time.Hour)
+	if !workday.Date.ToTime().Before(currentDate) {
+		return errors.New("cannot create workday for the current day or future dates")
+	}
+
+	if err := s.workDayRepo.CreateWorkDay(ctx, workday); err != nil {
+		return err
+	}
+
+	// create raw attendance for all employees that existing in this workday existing view
+	employeeAttendances, err := s.workDayRepo.GetEmployeesWithAttendance(ctx, workday.Date.ToTime())
+	if err != nil {
+		return err
+	}
+
+	for _, ea := range employeeAttendances {
+		status := determineAttendanceStatus(
+			ea.Checkin,
+			ea.Checkout)
+
+		rawAttendance := models.RawAttendance{
+			WorkDayID: workday.ID,
+			CompanyID: ea.CompanyID,
+			UserID:    ea.UserID,
+			EmployeeName: sql.NullString{
+				String: ea.FirstName + " " + ea.LastName,
+				Valid:  true,
+			},
+			Position: sql.NullString{
+				String: ea.Qualification,
+				Valid:  ea.Qualification != "",
+			},
+			StartAt: sql.NullString{
+				String: ea.Checkin.Time.Format("15:04:05"),
+				Valid:  !ea.Checkin.Time.IsZero(),
+			},
+			EndAt: sql.NullString{
+				String: ea.Checkout.Time.Format("15:04:05"),
+				Valid:  !ea.Checkout.Time.IsZero(),
+			},
+			TotalHours: sql.NullFloat64{
+				Float64: calculateTotalHours(ea.Checkin.Time, ea.Checkout.Time),
+				Valid:   !ea.Checkin.Time.IsZero() && !ea.Checkout.Time.IsZero(),
+			},
+			Status: status,
+			Notes: sql.NullString{
+				String: "",
+				Valid:  false,
+			},
+			CalculateOverTime:  false,
+			CalculateLunchHour: true,
+		}
+
+		// Calculate TotalHourOut based on attendance logs between checkin and checkout if both are not zero
+		if !ea.Checkin.Time.IsZero() && !ea.Checkout.Time.IsZero() {
+			totalHourOut, err := s.attendanceRepo.GetTotalHourOutByUserAndTimeRange(ctx, ea.RegisterNumber, ea.Checkin.Time, ea.Checkout.Time)
+			if err != nil {
+				return err
+			}
+			rawAttendance.TotalHourOut = sql.NullFloat64{
+				Float64: totalHourOut,
+				Valid:   true,
+			}
+		} else {
+			rawAttendance.TotalHourOut = sql.NullFloat64{Valid: false}
+		}
+
+		if err := s.rawAttendanceRepo.CreateRawAttendance(ctx, &rawAttendance); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Add the following helper function in the same file
+
+func calculateTotalHours(checkin, checkout time.Time) float64 {
+	if checkin.IsZero() || checkout.IsZero() {
+		return 0
+	}
+
+	// Extract time components
+	checkInTime := time.Date(2000, 1, 1, checkin.Hour(), checkin.Minute(), 0, 0, time.UTC)
+	checkOutTime := time.Date(2000, 1, 1, checkout.Hour(), checkout.Minute(), 0, 0, time.UTC)
+
+	// If checkout is before checkin, add 24 hours to checkout (next day)
+	if checkOutTime.Before(checkInTime) {
+		checkOutTime = checkOutTime.Add(24 * time.Hour)
+	}
+
+	return checkOutTime.Sub(checkInTime).Hours()
+}
+
+func determineAttendanceStatus(checkin, checkout sql.NullTime) sql.NullString {
+	if !checkin.Valid || !checkout.Valid {
+		return sql.NullString{String: "absent", Valid: true}
+	}
+
+	totalHours := calculateTotalHours(checkin.Time, checkout.Time)
+
+	if totalHours > 0 {
+		return sql.NullString{String: "present", Valid: true}
+	}
+
+	return sql.NullString{String: "absent", Valid: true}
 }
 
 // GetWorkDayByID retrieves a workday by its ID.

@@ -14,5 +14,6 @@ type AttendanceLog struct {
 	UserID       int       `json:"user_id"`       // User ID as an integer
 	Status       uint8     `json:"status"`        // Status of the attendance record
 	Punch        uint8     `json:"punch"`         // Punch type (e.g., check-in, check-out)
+	SystemPunch  string    `json:"system_punch"`  // System punch type
 	Timestamp    time.Time `json:"timestamp"`     // Timestamp of the attendance record
 }

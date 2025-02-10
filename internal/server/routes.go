@@ -27,19 +27,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Health check endpoint
 	r.GET("/health", handlers.HealthHandler(s.db))
 
-	// EmployeeWorkDay routes
-	employeeWorkDayHandler := handlers.NewEmployeeWorkDayHandler(s.employeeWorkDayService)
-	r.POST("/employee-workdays/generate/:workDayID", employeeWorkDayHandler.GenerateEmployeeWorkDay)
-	r.PUT("/employee-workdays/:id", employeeWorkDayHandler.UpdateEmployeeWorkDay)
-
 	// RawAttendance routes
 	rawAttendanceHandler := handlers.NewRawAttendanceHandler(s.rawAttendanceService)
 	r.POST("/raw-attendances", rawAttendanceHandler.CreateRawAttendance)
-	r.POST("/raw-attendances/bulk", rawAttendanceHandler.CreateManyRawAttendances)
 	r.GET("/raw-attendances/:id", rawAttendanceHandler.GetRawAttendanceByID)
-	r.GET("/raw-attendances/work-day/:workDayID", rawAttendanceHandler.GetRawAttendancesByWorkDayID)
+	r.GET("/raw-attendances/by-company/:companyId/work-day/:workDayId", rawAttendanceHandler.GetRawAttendancesByCompanyAndWorkDay)
 	r.PUT("/raw-attendances/:id", rawAttendanceHandler.UpdateRawAttendance)
 	r.DELETE("/raw-attendances/:id", rawAttendanceHandler.DeleteRawAttendance)
+	r.GET("/raw-attendances", rawAttendanceHandler.ListRawAttendances)
 
 	// WorkDay routes
 	workDayHandler := handlers.NewWorkDayHandler(s.workDayService)
@@ -87,6 +82,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/attendance-logs/:id", attendanceHandler.GetAttendanceLogByID)
 	deviceHandler := handlers.NewDeviceHandler(s.deviceService)
 	RegisterDeviceRoutes(r, deviceHandler)
+
+	// Initialize your handlers
+	reportHandler := handlers.NewReportHandler(s.reportService)
+	r.GET("/report/:companyID", reportHandler.GenerateReport)
 
 	r.GET("/ws", handlers.ServeWs)
 	s.httpServer.Handler = r

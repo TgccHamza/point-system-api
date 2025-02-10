@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"point-system-api/internal/models"
 	"strconv"
 	"time"
@@ -37,11 +38,11 @@ type service struct {
 }
 
 var (
-	dbname     = "blueprint"
-	password   = "password1234"
-	username   = "melkey"
-	port       = "3306"
-	host       = "localhost"
+	dbname     =  os.Getenv("BLUEPRINT_DB_DATABASE")
+	password   =  os.Getenv("BLUEPRINT_DB_PASSWORD")
+	username   =  os.Getenv("BLUEPRINT_DB_USERNAME")
+	port       =  os.Getenv("BLUEPRINT_DB_PORT")
+	host       =  os.Getenv("BLUEPRINT_DB_HOST")
 	dbInstance *service
 )
 
@@ -165,5 +166,56 @@ func MigrateDB() error {
 	}
 
 	log.Printf("Database migrated successfully")
+	return nil
+}
+
+func InitializeViewDB() error {
+	user_daily_checkin_checkout := `CREATE OR REPLACE VIEW user_daily_checkin_checkout AS 
+	WITH DailyPunchData AS (
+            SELECT 
+                attendance_logs.user_id AS user_id,
+                CAST(attendance_logs.timestamp AS DATE) AS date,
+                MIN(CASE WHEN (attendance_logs.system_punch = 'IN') THEN attendance_logs.timestamp END) AS checkin,
+                MAX(CASE WHEN (attendance_logs.system_punch = 'OUT') THEN attendance_logs.timestamp END) AS last_out_punch,
+                MAX(attendance_logs.timestamp) AS last_punch_of_day,
+                MAX(CASE WHEN (attendance_logs.system_punch = 'IN') THEN attendance_logs.timestamp END) AS last_in_punch
+            FROM attendance_logs 
+            GROUP BY attendance_logs.user_id, CAST(attendance_logs.timestamp AS DATE)
+        ), 
+        NextDayPunch AS (
+            SELECT 
+                c.user_id AS user_id,
+                c.date AS date,
+                MIN(n.timestamp) AS next_out_punch
+            FROM DailyPunchData c 
+            LEFT JOIN attendance_logs n 
+                ON ((c.user_id = n.user_id) 
+                AND (CAST(n.timestamp AS DATE) = (c.date + INTERVAL 1 DAY)) 
+                AND (n.system_punch = 'OUT'))
+            GROUP BY c.user_id, c.date
+       ) 
+
+
+
+        SELECT 
+            d.user_id AS user_id,
+            d.date AS date,
+            d.checkin AS checkin,
+            (CASE 
+                WHEN ((d.last_punch_of_day = d.last_in_punch) AND (nd.next_out_punch IS NOT NULL)) 
+                THEN nd.next_out_punch 
+                WHEN (d.last_punch_of_day <> d.last_in_punch) 
+                THEN d.last_out_punch 
+                ELSE NULL 
+            END) AS checkout
+        FROM DailyPunchData d 
+        LEFT JOIN NextDayPunch nd 
+            ON ((d.user_id = nd.user_id) AND (d.date = nd.date))
+        ORDER BY d.user_id, d.date`
+
+	if err := dbInstance.db.Exec(user_daily_checkin_checkout).Error; err != nil {
+		return fmt.Errorf("failed to create user_daily_checkin_checkout view: %w", err)
+	}
+
 	return nil
 }

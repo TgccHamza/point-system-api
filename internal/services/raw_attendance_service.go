@@ -2,59 +2,80 @@ package services
 
 import (
 	"context"
-
+	"database/sql"
+	"errors"
 	"point-system-api/internal/models"
 	"point-system-api/internal/repositories"
+	"time"
 )
 
-// RawAttendanceService defines the interface for raw attendance-related operations.
 type RawAttendanceService interface {
 	CreateRawAttendance(ctx context.Context, rawAttendance *models.RawAttendance) error
-	CreateManyRawAttendances(ctx context.Context, rawAttendances []*models.RawAttendance) error
 	GetRawAttendanceByID(ctx context.Context, id uint) (*models.RawAttendance, error)
-	GetRawAttendancesByWorkDayID(ctx context.Context, workDayID uint) ([]*models.RawAttendance, error)
-	UpdateRawAttendance(ctx context.Context, rawAttendance *models.RawAttendance) error
+	GetRawAttendancesByCompanyIDAndWorkDay(ctx context.Context, companyID uint, workDayID uint) ([]*models.RawAttendance, error)
+	UpdateRawAttendance(ctx context.Context, rawAttendance *models.RawAttendance, id uint) error
 	DeleteRawAttendance(ctx context.Context, id uint) error
+	ListRawAttendances(ctx context.Context) ([]*models.RawAttendance, error)
 }
 
-// rawAttendanceService implements the RawAttendanceService interface.
 type rawAttendanceService struct {
 	rawAttendanceRepo repositories.RawAttendanceRepository
 }
 
-// NewRawAttendanceService creates a new instance of RawAttendanceService.
 func NewRawAttendanceService(rawAttendanceRepo repositories.RawAttendanceRepository) RawAttendanceService {
 	return &rawAttendanceService{
 		rawAttendanceRepo: rawAttendanceRepo,
 	}
 }
 
-// CreateRawAttendance creates a new raw attendance record in the database.
 func (s *rawAttendanceService) CreateRawAttendance(ctx context.Context, rawAttendance *models.RawAttendance) error {
+	if rawAttendance == nil {
+		return errors.New("raw attendance is nil")
+	}
 	return s.rawAttendanceRepo.CreateRawAttendance(ctx, rawAttendance)
 }
 
-// CreateManyRawAttendances creates multiple raw attendance records in the database.
-func (s *rawAttendanceService) CreateManyRawAttendances(ctx context.Context, rawAttendances []*models.RawAttendance) error {
-	return s.rawAttendanceRepo.CreateManyRawAttendances(ctx, rawAttendances)
-}
-
-// GetRawAttendanceByID retrieves a raw attendance record by its ID.
 func (s *rawAttendanceService) GetRawAttendanceByID(ctx context.Context, id uint) (*models.RawAttendance, error) {
 	return s.rawAttendanceRepo.GetRawAttendanceByID(ctx, id)
 }
 
-// GetRawAttendancesByWorkDayID retrieves all raw attendance records for a specific work day.
-func (s *rawAttendanceService) GetRawAttendancesByWorkDayID(ctx context.Context, workDayID uint) ([]*models.RawAttendance, error) {
-	return s.rawAttendanceRepo.GetRawAttendancesByWorkDayID(ctx, workDayID)
+func (s *rawAttendanceService) GetRawAttendancesByCompanyIDAndWorkDay(ctx context.Context, companyID uint, workDayID uint) ([]*models.RawAttendance, error) {
+	return s.rawAttendanceRepo.GetRawAttendancesByCompanyIDAndWorkDay(ctx, companyID, workDayID)
 }
 
-// UpdateRawAttendance updates an existing raw attendance record in the database.
-func (s *rawAttendanceService) UpdateRawAttendance(ctx context.Context, rawAttendance *models.RawAttendance) error {
-	return s.rawAttendanceRepo.UpdateRawAttendance(ctx, rawAttendance)
+func (s *rawAttendanceService) UpdateRawAttendance(ctx context.Context, rawAttendance *models.RawAttendance, id uint) error {
+	if rawAttendance == nil {
+		return errors.New("raw attendance is nil")
+	}
+
+	if rawAttendance.StartAt.String != "" && rawAttendance.EndAt.String != "" {
+		const layoutWithoutSeconds = "15:04"
+		// Use only first 5 characters to ignore seconds
+		if len(rawAttendance.StartAt.String) < 5 || len(rawAttendance.EndAt.String) < 5 {
+			rawAttendance.TotalHours = sql.NullFloat64{Valid: false}
+		} else {
+			start, errStart := time.Parse(layoutWithoutSeconds, rawAttendance.StartAt.String[:5])
+			end, errEnd := time.Parse(layoutWithoutSeconds, rawAttendance.EndAt.String[:5])
+			if errStart == nil && errEnd == nil {
+				// Adjust for overnight shift
+				if end.Before(start) {
+					end = end.Add(24 * time.Hour)
+				}
+				hours := end.Sub(start).Hours()
+				rawAttendance.TotalHours = sql.NullFloat64{Float64: hours, Valid: true}
+			} else {
+				rawAttendance.TotalHours = sql.NullFloat64{Valid: false}
+			}
+		}
+	}
+
+	return s.rawAttendanceRepo.UpdateRawAttendance(ctx, rawAttendance, id)
 }
 
-// DeleteRawAttendance deletes a raw attendance record by its ID.
 func (s *rawAttendanceService) DeleteRawAttendance(ctx context.Context, id uint) error {
 	return s.rawAttendanceRepo.DeleteRawAttendance(ctx, id)
+}
+
+func (s *rawAttendanceService) ListRawAttendances(ctx context.Context) ([]*models.RawAttendance, error) {
+	return s.rawAttendanceRepo.ListRawAttendances(ctx)
 }

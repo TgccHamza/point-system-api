@@ -36,7 +36,11 @@ func (h *WorkDayHandler) CreateWorkDay(c *gin.Context) {
 	}
 
 	manager.broadcast <- []byte("CREATE_WORKDAY")
-	c.JSON(http.StatusCreated, gin.H{"message": "Workday created successfully"})
+	// Return the created workday object in "data".
+	c.JSON(http.StatusCreated, gin.H{
+		"data":    workday,
+		"message": "Workday created successfully",
+	})
 }
 
 // GetWorkDayByID retrieves a workday by its ID.
@@ -56,8 +60,11 @@ func (h *WorkDayHandler) GetWorkDayByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Workday not found"})
 		return
 	}
-
-	c.JSON(http.StatusOK, workday)
+	// Return the fetched workday object in "data".
+	c.JSON(http.StatusOK, gin.H{
+		"data":    workday,
+		"message": "Workday fetched successfully",
+	})
 }
 
 // ListWorkDays retrieves all workdays.
@@ -92,7 +99,11 @@ func (h *WorkDayHandler) UpdateWorkDay(c *gin.Context) {
 	}
 
 	manager.broadcast <- []byte("UPDATE_WORKDAY")
-	c.JSON(http.StatusOK, gin.H{"message": "Workday updated successfully"})
+	// Return the created workday object in "data".
+	c.JSON(http.StatusCreated, gin.H{
+		"data":    workday,
+		"message": "Workday updated successfully",
+	})
 }
 
 // DeleteWorkDay handles deleting a workday by its ID.

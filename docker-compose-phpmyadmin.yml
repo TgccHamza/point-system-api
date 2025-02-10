@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: mysql  # Replace with your external MySQL host (e.g., IP address or hostname)
+      PMA_PORT: 3306                   # Replace if your MySQL server uses a different port
+      PMA_ARBITRARY: 1                 # Allows connecting to any MySQL server
+    ports:
+      - "9019:80"    
+    external_links:
+      - point-system-api-mysql_bp-1:mysql   
+    restart: always
+    networks:
+      - default
+
+networks:
+  default:
+    external:
+      name: point-system-api_default
