@@ -1,5 +1,5 @@
 # Use an official Go image as the base image
-FROM golang:1.23 as builder
+FROM golang:1.23
 
 # Set environment variables
 ENV GO111MODULE=on \
@@ -23,8 +23,5 @@ RUN go build -o main .
 # Expose MySQL and app ports
 EXPOSE 8080
 
-# Copy the built Go application from the builder stage
-COPY --from=builder /app/main /main
-
 # Command to start MySQL and your Go application
-CMD ["/main"]
+CMD ["./main"]
